@@ -96,26 +96,32 @@ All grouping is by **calendar year**, sometimes broken down further into quarter
 
 The user questioned old round 3 Q6 (importing existing data). The data flow they have in mind is: form → list → main database. That's correct, so the import is no longer assumed. Round 4 Q3 offers keeping the history in the main database instead.
 
-## Open questions (round 4)
+## Settled (round 4)
 
-1. **Who reports besides IREx Members**, and which of their records count towards IREx's KPIs as opposed to the separate Dec collation.
-   Recommended: the form is open to all TTSH staff. A record counts in IREx KPIs only when it involves at least one IREx Member. Everything is kept so it can also serve the other collation.
-2. **Naming the people involved.** Recommended: the form records the submitter automatically from their login. It asks "Which IREx Members were involved?" as a tick list (filled from the user's IREx Member list once provided), plus a free-text "Other contributors" box.
-3. **History.** Recommended: no import. Records already in the main database stay there as a frozen history table. A Power Query in the main database appends the list's Checked records to that history, so the pivots show both. Anything submitted after a cut-over date arrives through the form. Old Accepted / Under Review records are updated in the history table by hand.
-4. **Where IREx Admin's edits happen.** Data pulled from a list is rewritten on every refresh, so anything typed beside it in Excel gets lost or misaligned.
-   Recommended: status changes and *Checked* are set in the list itself. The JIF percentile is filled in automatically by Power Query, which matches the journal name against the Impact Factor tables, and IREx Admin fixes the journal names that don't match.
-5. **One item per response.** Microsoft Forms can only jump forward to later sections, so it can't loop back for a second item. Recommended: each response reports one activity, and the thank-you message offers "Submit another response".
-6. **Reminder mechanics.** Recommended: a scheduled quarterly reminder flow, plus a reminder flow IREx Admin runs by hand from Power Automate when needed (about two weeks before a committee meeting, and before 31 Dec). Also to confirm: is the *committee meeting* the KPI Review, or a different meeting?
-7. **The choices on the first question.** Recommended: Publication / Presentation (poster or oral) / Media Appearance / Talent Development (award or grant) / Education Activity / New Project.
+1. **"IREx Member" meant the IREx Committee.** Anyone in rehab reports: rehab doctors, nurses and allied health staff (therapists, MSWs and others), together called *Rehab Staff*. Research activity isn't limited to the committee. The form link is shared with the relevant people and needs no access management. It's open to all TTSH staff. (This replaces round 3's "IREx Member list". A member list isn't needed for reporting.)
+2. **Several items per Submission.** Someone should be able to report several outputs in one go. This replaces round 3's "first question picks one activity type".
+3. **The main database stays exactly as it is.** IREx Admin keeps using the main database day to day for KPI data and project management. Every sheet keeps its current purpose and layout, and every record, old and new, stays editable by hand in its own sheet. So nothing may own its tables: no SharePoint List as the source of truth, no Power Query table that refresh overwrites, no frozen history. This replaces round 2's "Research Outputs go into SharePoint Lists" and round 3's "admin-only lists". IREx Admin's edits (status, Checked, JIF percentile) are made in the main database as now.
+4. **KPI Review = the committee meeting.** It happens about twice a year, with dates that move by a few months.
+5. **Reminders.** Two Power Automate flows: a scheduled quarterly reminder, and one IREx Admin runs when needed (about two weeks before a KPI Review, and before 31 Dec for the separate non-IREx collation exercise).
+6. **The six activity types on the form** are Publication, Presentation (poster or oral), Media Appearance, Talent Development, Education Activity and New Project.
+
+## Open questions (round 5)
+
+1. **Getting Submissions into the main database without taking over its tables.** Recommended: Form → Power Automate → a separate *Submissions workbook* (.xlsx, in a SharePoint folder only IREx Admin can open). It has one table per activity type, with the same columns in the same order as the main database's tables, plus *Submitted by*, *Submitted on* and *Moved* columns. Each item becomes its own row. IREx Admin then moves the rows they accept into the main database, and from then on those rows are ordinary rows in the main database. Writing straight into the main database from Power Automate was rejected: Microsoft's documentation is inconsistent about whether the Excel connector supports .xlsm, the file is often open on someone's desktop, and there would be no review step.
+2. **How rows are moved.** Copy and paste by hand (the columns line up), or an *Import Submissions* macro button. The macro would be a new VBA module next to the existing Gantt modules, with no sheet changes. It appends each row inside the right Excel table, marks it *Moved* in the Submissions workbook and flags likely duplicate titles or DOIs.
+   Recommended: the macro, with copy and paste still possible.
+3. **Several items per Submission in Microsoft Forms.** Forms has no repeating section, and it's capped at 200 questions. Recommended: the form walks through each activity type in turn. It asks "Any publications to report?" with Yes/No; if Yes, it shows Publication 1, then "Another publication?" which leads to Publication 2, and so on up to a cap. Suggested caps: 5 Publications, 5 Presentations, 3 Media Appearances, 3 Talent Developments, 3 Education Activities and 1 New Project, about 190 questions in total. Anyone with more submits again. The alternative is a Power Apps form with unlimited rows, which needs Power Apps to be available and is more work to maintain.
+4. **Which Publications count.** Recommended: a Publication counts when at least one author is Rehab Staff (a *Rehab Author*), in any position. Test case: a paper whose only TTSH author is a neurologist doesn't count.
+5. **Naming people on the form.** Recommended: the submitter is recorded automatically from their login. Each item has a free-text "Rehab Staff involved (full names)" box, and IREx Admin identifies Family Group from the names, as now.
 
 ## Not yet asked
 
-These come after round 4:
+These come after round 5:
 
 - Producing KPI figures and the KPI Review report: refreshing the main database's queries and pivots, and whether the PowerPoint can be fed from them more directly.
 - Rollout: how staff are introduced to the new process, and running it alongside the old workbook for one cycle.
-- The exact questions on each branch of the form.
+- The exact questions for each activity type: only what submitters know, mapped to the main database's columns. Derived columns (No., the combined text columns, JIF percentile) stay with IREx Admin.
 
 ## Next session
 
-Resume with the user's answers to round 4. The user will also bring the IREx Member list.
+Resume with the user's answers to round 5.
