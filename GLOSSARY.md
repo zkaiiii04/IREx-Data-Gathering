@@ -27,7 +27,7 @@ _Avoid_: bi-annual report, department meeting
 ## Research activity
 
 **Research Output**:
-A one-off piece of research activity with a date: a Publication, a Presentation or a Media Appearance. Each one is recorded once, however many IREx Members contributed.
+A one-off piece of research activity with a date: a Publication, a Presentation or a Media Appearance. Each one is recorded once, however many IREx Members contributed. It is not a Project.
 _Avoid_: submission, entry, output (alone)
 
 **Publication**:
@@ -51,21 +51,21 @@ An award or personal grant given to an IREx Member: either a Talent Development 
 _Avoid_: award (alone), accolade
 
 **Education Activity**:
-A course, workshop, webinar or sharing session that IREx Members run as trainers or speakers, for professionals or for patients, caregivers and the public.
+A course, workshop, webinar or sharing session that IREx Members run as trainers, speakers or organisers, for professionals or for patients, caregivers and the public.
 _Avoid_: training, outreach, education (alone)
 
-**Research Project**:
-A piece of research that runs over time, with its own funding, status and Principal Investigator. It is tracked as its own KPI and is not a Research Output. Its category is Research, Innovation or Lien Foundation (LF).
-_Avoid_: study, grant
+**Project**:
+A piece of research or innovation work that runs over time, with its own funding, status and Principal Investigator. It is tracked as its own KPI. Its category is Research, Innovation or Lien Foundation (LF).
+_Avoid_: Research Project, study, grant
 
 **Oversight Project**:
-A Research Project that IREx oversees but does not run. Its statuses carry the suffix "(Oversight)".
+A Project that IREx oversees but does not run. Its statuses carry the suffix "(Oversight)".
 _Avoid_: supported project
 
 **Principal Investigator (PI)**:
-The IREx Member who leads a Research Project.
+The IREx Member who leads a Project.
 _Avoid_: lead, owner
 
 **Letter of Award (LOA)**:
-The funder's award for a Research Project or Talent Development grant. Its start and end dates bound the funded period.
+The funder's award for a Project or Talent Development grant. Its start and end dates bound the funded period.
 _Avoid_: award letter, grant period

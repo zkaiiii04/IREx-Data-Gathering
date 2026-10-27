@@ -4,7 +4,7 @@ Working record of the design interview. Terms are defined in [GLOSSARY.md](../GL
 
 ## The problem
 
-IREx collects its members' research activity (Publications, Presentations, Media Appearances, Talent Development, Education Activities and Research Projects) twice a year for department KPI tracking at the KPI Review. Today a shared Excel workbook with one sheet per activity type, already holding earlier data, is emailed to staff, and IREx Admin has to keep reminding people to fill it in. The data ends up in a separate main database Excel file.
+IREx collects its members' research activity (Publications, Presentations, Media Appearances, Talent Development, Education Activities and Projects) twice a year for department KPI tracking at the KPI Review. Today a shared Excel workbook with one sheet per activity type, already holding earlier data, is emailed to staff, and IREx Admin has to keep reminding people to fill it in. The data ends up in a separate main database Excel file.
 
 Constraints: Microsoft 365 enterprise, no Copilot agents. Microsoft Forms, SharePoint Lists and Power Automate are available. Power BI availability is unknown.
 
@@ -83,25 +83,34 @@ All grouping is by **calendar year**, sometimes broken down further into quarter
 8. **One process for everyone.** All IREx Members use the same forms. The forms don't ask for Family Group, because IREx Admin can tell it from the name.
 9. **Project terms.** An *Oversight Project* is one IREx oversees but doesn't run. Category "LF" means Lien Foundation.
 
-## Open questions (round 3)
+## Settled (round 3)
 
-Each has a recommended answer for the user to confirm or change.
+1. **No official IREx Member list yet.** The RIE Namelist is *not* the IREx Member list: it includes some people who aren't IREx Members and misses some who are. The user will provide the IREx Member list in a later session. Data collection isn't limited to IREx Members either (who else reports is open in round 4).
+2. **Form tool.** Microsoft Forms, with Power Automate copying each response into the matching SharePoint List.
+3. **One form for everything, new projects included.** One form covers the Research Outputs, Talent Development, Education Activities and new Projects. The first question picks what is being reported, and the form branches from there. New Projects go to a *Project Notifications* list, and IREx Admin creates the Project in the main database and fills in the finance and admin fields.
+4. **Checking submissions.** Each submission arrives as *New*. IREx Admin checks it by hand (duplicates, status, JIF percentile) and marks it *Checked*. Only Checked records count.
+5. **Who submits an Education Activity.** Any IREx Member who spoke at the activity or was part of the team that ran it.
+6. **Access.** Only IREx Admin can open the lists. Everyone else uses the form only.
+7. **Reminders.** Quarterly rather than monthly. Reminders aren't tied to fixed dates: IREx Admin wants to send one about two weeks before committee meetings, and one before 31 Dec, because a separate non-IREx collation exercise happens then.
+8. **Project** replaces "Research Project" as the term, with category Research, Innovation or Lien Foundation.
 
-1. **IREx Member list.** The `DB_RIE Namelist` tab (36 people with Family Group, R/I/E role, institution and Active/Inactive) is in the main database, and hidden in the staff input workbook.
-   Recommended: it becomes the official IREx Member list, kept up to date by IREx Admin. It supplies the names members pick on the forms and decides who counts as an IREx Author.
-2. **Form tool.** Microsoft Forms plus Power Automate, or the form built into each SharePoint List.
-   Recommended: one Microsoft Form, "Report research activity", that branches to the right questions for each activity type. A Power Automate flow writes each answer into the matching list. Members only need one link, and the form records who submitted it.
-3. **Reporting a new Research Project.** Recommended: a "New Research Project" branch on the same form, writing to a *Project Notifications* list. It asks for title, PI, Co-Is, category, funder, grant type, amount, status (Applied / Awarded), LOA dates and DSRB ref. IREx Admin then creates the project in the main database and adds the finance and admin fields. Later status and progress changes are made by IREx Admin.
-4. **Checking submissions.** Any IREx Author may submit, so the same Publication can arrive twice. Recommended: every submission arrives as *New*. IREx Admin checks it (removes duplicates by DOI / PMID / title, corrects the status, adds the JIF percentile) and marks it *Checked*, and only Checked records count.
-5. **Who submits an Education Activity.** The tab records Trainer(s)/Speaker(s) and an organising body (CORE, IREx, NHGP). Recommended: any IREx Member who was a trainer or speaker submits it and picks the other IREx trainers, with the same one-record-per-activity rule as Publications.
-6. **Moving the existing data.** Recommended: a one-off import of every Research Output, Talent Development and Education record from the main database into the lists. Name variants are mapped to the IREx Member list and status spellings are fixed, using a mapping table that IREx Admin checks. After that the staff input workbook is retired.
-7. **Access to the lists.** Recommended: only IREx Admin can open and edit the lists. Members use the form only and get no list access in the first version.
-8. **Reminders.** Recommended: Power Automate sends a monthly "anything new?" email with the form link to every active IREx Member, plus a reminder two weeks before each cut-off (30 Jun and 31 Dec).
-9. **"Research Project" covers Innovation too.** Category Innovation sits under a term that says "Research". Recommended: rename the term to *Project*, with category Research, Innovation or Lien Foundation.
+The user questioned old round 3 Q6 (importing existing data). The data flow they have in mind is: form → list → main database. That's correct, so the import is no longer assumed. Round 4 Q3 offers keeping the history in the main database instead.
+
+## Open questions (round 4)
+
+1. **Who reports besides IREx Members**, and which of their records count towards IREx's KPIs as opposed to the separate Dec collation.
+   Recommended: the form is open to all TTSH staff. A record counts in IREx KPIs only when it involves at least one IREx Member. Everything is kept so it can also serve the other collation.
+2. **Naming the people involved.** Recommended: the form records the submitter automatically from their login. It asks "Which IREx Members were involved?" as a tick list (filled from the user's IREx Member list once provided), plus a free-text "Other contributors" box.
+3. **History.** Recommended: no import. Records already in the main database stay there as a frozen history table. A Power Query in the main database appends the list's Checked records to that history, so the pivots show both. Anything submitted after a cut-over date arrives through the form. Old Accepted / Under Review records are updated in the history table by hand.
+4. **Where IREx Admin's edits happen.** Data pulled from a list is rewritten on every refresh, so anything typed beside it in Excel gets lost or misaligned.
+   Recommended: status changes and *Checked* are set in the list itself. The JIF percentile is filled in automatically by Power Query, which matches the journal name against the Impact Factor tables, and IREx Admin fixes the journal names that don't match.
+5. **One item per response.** Microsoft Forms can only jump forward to later sections, so it can't loop back for a second item. Recommended: each response reports one activity, and the thank-you message offers "Submit another response".
+6. **Reminder mechanics.** Recommended: a scheduled quarterly reminder flow, plus a reminder flow IREx Admin runs by hand from Power Automate when needed (about two weeks before a committee meeting, and before 31 Dec). Also to confirm: is the *committee meeting* the KPI Review, or a different meeting?
+7. **The choices on the first question.** Recommended: Publication / Presentation (poster or oral) / Media Appearance / Talent Development (award or grant) / Education Activity / New Project.
 
 ## Not yet asked
 
-These come after round 3:
+These come after round 4:
 
 - Producing KPI figures and the KPI Review report: refreshing the main database's queries and pivots, and whether the PowerPoint can be fed from them more directly.
 - Rollout: how staff are introduced to the new process, and running it alongside the old workbook for one cycle.
@@ -109,4 +118,4 @@ These come after round 3:
 
 ## Next session
 
-Resume with the user's answers to round 3.
+Resume with the user's answers to round 4. The user will also bring the IREx Member list.
