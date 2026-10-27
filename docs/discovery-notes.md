@@ -4,7 +4,7 @@ Working record of the design interview. Terms are defined in [GLOSSARY.md](../GL
 
 ## The problem
 
-IREx collects its members' research activity (publications, poster presentations, media appearances, research projects) twice a year for department KPI tracking at the KPI Review. Today a shared Excel workbook with one sheet per activity type, already holding earlier data, is emailed to staff, and the collector has to keep reminding people to fill it in. The data ends up in a separate main database Excel file.
+IREx collects its members' research activity (Publications, Presentations, Media Appearances, Talent Development, Education Activities and Research Projects) twice a year for department KPI tracking at the KPI Review. Today a shared Excel workbook with one sheet per activity type, already holding earlier data, is emailed to staff, and IREx Admin has to keep reminding people to fill it in. The data ends up in a separate main database Excel file.
 
 Constraints: Microsoft 365 enterprise, no Copilot agents. Microsoft Forms, SharePoint Lists and Power Automate are available. Power BI availability is unknown.
 
@@ -21,11 +21,11 @@ Constraints: Microsoft 365 enterprise, no Copilot agents. Microsoft Forms, Share
 
 ## What the two workbooks show (reviewed in session 2)
 
-Two files were reviewed: the **staff input workbook** (`IREX_Rehab_Med_Data_Collection_CY2026.xlsm`), which goes out to IREx Members, and the **main database** (`tbl_IRExDB_Use_This.xlsm`), which the collector's team uses.
+Two files were reviewed: the **staff input workbook** (`IREX_Rehab_Med_Data_Collection_CY2026.xlsm`), which goes out to IREx Members, and the **main database** (`tbl_IRExDB_Use_This.xlsm`), which IREx Admin uses.
 
 ### How the staff input workbook relates to the main database
 
-- The staff input workbook is a **copy of the main database** with the team-only tabs removed. It contains every existing record, not a blank form, and IREx Members add rows to it. The collector then copies the new rows into the main database by hand.
+- The staff input workbook is a **copy of the main database** with the team-only tabs removed. It contains every existing record, not a blank form, and IREx Members add rows to it. IREx Admin then copies the new rows into the main database by hand.
 - The two have drifted apart. The main database has 24 Publications and 4 Poster/Oral Presentations that the staff input copy doesn't have. The staff input copy has 2 Publications and 1 presentation that the main database doesn't have, and one project is only in the main database.
 - **Both project tabs ("Research" and "Innovation") hold all 103 projects**, each with all 39 columns, including grant amounts, IO codes, cost centres, budget, utilisation and balance. Every IREx Member who receives the file can see the finances of every project.
 - New rows get typed below the Excel table instead of inside it (e.g. Publications row 99), so the table's pivots and lookups miss them.
@@ -36,7 +36,7 @@ It is a project management tool as well as the KPI store. Some of its tabs never
 
 - **Gantt Chart**, run by macros (the only VBA in either file loads and saves Gantt data), with the task plan in `DB_PrjGanttChart`.
 - **RA and AHS/Nursing resource distribution** across projects, with manpower rates by grade.
-- **JIF percentile lookup tables** (`Impact Factor-2025Q1/Q2`, `Impact Factor-2026`, about 32,000 journals). The collector adds each Publication's journal ranking from these.
+- **JIF percentile lookup tables** (`Impact Factor-2025Q1/Q2`, `Impact Factor-2026`, about 32,000 journals). IREx Admin adds each Publication's journal ranking from these.
 - **Visualisation tabs** (one per team member), built from pivot tables and slicers. They feed the PowerPoint for the KPI Review.
 - `tbl_List` contains a table of SharePoint list GUIDs (`tbl_PrjGeneralInfo`, `tbl_ProjectIOCode`, `tbl_ProjectUpdatesConcern`, `tbl_ProjectUpcomingPlan`, `tbl_ProjectUtilisation`), which suggests the project data was connected to SharePoint lists at some point.
 
@@ -71,32 +71,42 @@ All grouping is by **calendar year**, sometimes broken down further into quarter
 - Some date cells hold Excel serial numbers or text ("20 Aug 25") instead of dates, and others hold "(blank)".
 - One Publication is in the main database twice.
 
-## Open questions (round 2, revised after reviewing the files)
+## Settled (round 2)
 
-The files answered the old Q7 (columns) and the "to check" under Q1. The other questions have been revised to match what the files show; the round is put to the user in the session.
+1. **Where the data lives.** Research Outputs go into SharePoint Lists. The main database pulls them in with *Get Data → From SharePoint List* in place of the tabs filled by hand today, so its pivots and the PowerPoint keep working. Research Projects stay in the main database, maintained by IREx Admin. Staff no longer receive a copy of the main database. (How a new project is reported is open in round 3.)
+2. **Which Publications count.** A Publication counts when at least one author is an IREx Member (an *IREx Author*), whether that's the first author or any other author. An external first author doesn't matter as long as an IREx Author is listed.
+3. **Reporting period.** Outputs count in the calendar year of their date (publication, presentation or media date). Research Projects count by LOA start year. Each KPI Review shows year-to-date figures: Jan–Jun at mid-year and the full year at year-end.
+4. **Statuses.** IREx Admin records and updates statuses, not IREx Members. On submission a member may pick any of the statuses: Under Review / Accepted / Published for a Publication, Accepted / Presented for a Presentation.
+5. **Presentation.** "Poster Presentation" becomes *Presentation*, with a type of Poster or Oral and the statuses Accepted → Presented.
+6. **Talent Development and Education Activities** are in scope, submitted through the same new process. Talent Development is submitted by the recipient. (Who submits an Education Activity is open in round 3.)
+7. **Media Appearance.** One record per outlet, as today, with one or more IREx Members and an optional related project or programme.
+8. **One process for everyone.** All IREx Members use the same forms. The forms don't ask for Family Group, because IREx Admin can tell it from the name.
+9. **Project terms.** An *Oversight Project* is one IREx oversees but doesn't run. Category "LF" means Lien Foundation.
 
-1. **Where the data lives.** The main database can't be replaced, because the Gantt chart, resource distribution and visualisations depend on it.
-   Recommended: Research Outputs (and Talent Development / Education if in scope) go to SharePoint Lists filled from Forms. The main database pulls them in with *Get Data → From SharePoint List* in place of its hand-filled tabs, so the existing pivots keep working. Research Projects stay in the main database, maintained by the team, and PIs send new projects and status updates through a form.
-2. **Lead contributor on a publication.** The files record a "1st Author Name" (often external) plus a free-text "TTSH Contributor" list. No publication field is called "PI".
-3. **Contributors outside IREx.** "TTSH Contributor" includes TTSH staff who aren't IREx Members. Do they count?
-4. **Reporting period.** The files group by calendar year. Is the KPI Review cut-off half-yearly?
-5. **Publication statuses.** The values in use are Under Review → Accepted → Published, and the KPI pivot reports all three.
-6. **Presentations.** The tab holds both poster and oral presentations, but the glossary only has "Poster Presentation".
-7. **Talent Development and Education** are tracked but aren't in the glossary or round 1.
-8. **Media granularity.** One press event currently becomes one row per outlet.
-9. **Family group workbooks.** The file name is "Rehab_Med". Does each family group get its own copy?
-10. **"(Oversight)" project statuses**, **project Category "LF"**, and who sees project finances.
+## Open questions (round 3)
+
+Each has a recommended answer for the user to confirm or change.
+
+1. **IREx Member list.** The `DB_RIE Namelist` tab (36 people with Family Group, R/I/E role, institution and Active/Inactive) is in the main database, and hidden in the staff input workbook.
+   Recommended: it becomes the official IREx Member list, kept up to date by IREx Admin. It supplies the names members pick on the forms and decides who counts as an IREx Author.
+2. **Form tool.** Microsoft Forms plus Power Automate, or the form built into each SharePoint List.
+   Recommended: one Microsoft Form, "Report research activity", that branches to the right questions for each activity type. A Power Automate flow writes each answer into the matching list. Members only need one link, and the form records who submitted it.
+3. **Reporting a new Research Project.** Recommended: a "New Research Project" branch on the same form, writing to a *Project Notifications* list. It asks for title, PI, Co-Is, category, funder, grant type, amount, status (Applied / Awarded), LOA dates and DSRB ref. IREx Admin then creates the project in the main database and adds the finance and admin fields. Later status and progress changes are made by IREx Admin.
+4. **Checking submissions.** Any IREx Author may submit, so the same Publication can arrive twice. Recommended: every submission arrives as *New*. IREx Admin checks it (removes duplicates by DOI / PMID / title, corrects the status, adds the JIF percentile) and marks it *Checked*, and only Checked records count.
+5. **Who submits an Education Activity.** The tab records Trainer(s)/Speaker(s) and an organising body (CORE, IREx, NHGP). Recommended: any IREx Member who was a trainer or speaker submits it and picks the other IREx trainers, with the same one-record-per-activity rule as Publications.
+6. **Moving the existing data.** Recommended: a one-off import of every Research Output, Talent Development and Education record from the main database into the lists. Name variants are mapped to the IREx Member list and status spellings are fixed, using a mapping table that IREx Admin checks. After that the staff input workbook is retired.
+7. **Access to the lists.** Recommended: only IREx Admin can open and edit the lists. Members use the form only and get no list access in the first version.
+8. **Reminders.** Recommended: Power Automate sends a monthly "anything new?" email with the form link to every active IREx Member, plus a reminder two weeks before each cut-off (30 Jun and 31 Dec).
+9. **"Research Project" covers Innovation too.** Category Innovation sits under a term that says "Research". Recommended: rename the term to *Project*, with category Research, Innovation or Lien Foundation.
 
 ## Not yet asked
 
-These come after round 2:
+These come after round 3:
 
-- Reminders: what nudges staff, and when (e.g. a monthly "anything new?" digest, a pre-KPI Review deadline reminder).
-- Review: does the collector approve submissions before they count?
-- Moving the existing data: cleaning duplicates and name variants during import.
-- Producing KPI figures and the KPI Review report (Excel refresh vs Power BI).
+- Producing KPI figures and the KPI Review report: refreshing the main database's queries and pivots, and whether the PowerPoint can be fed from them more directly.
 - Rollout: how staff are introduced to the new process, and running it alongside the old workbook for one cycle.
+- The exact questions on each branch of the form.
 
 ## Next session
 
-Resume with the user's answers to the revised round 2.
+Resume with the user's answers to round 3.
