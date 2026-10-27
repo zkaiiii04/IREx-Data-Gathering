@@ -108,11 +108,37 @@ The user questioned old round 3 Q6 (importing existing data). The data flow they
 ## Open questions (round 5)
 
 1. **Getting Submissions into the main database without taking over its tables.** Recommended: Form → Power Automate → a separate *Submissions workbook* (.xlsx, in a SharePoint folder only IREx Admin can open). It has one table per activity type, with the same columns in the same order as the main database's tables, plus *Submitted by*, *Submitted on* and *Moved* columns. Each item becomes its own row. IREx Admin then moves the rows they accept into the main database, and from then on those rows are ordinary rows in the main database. Writing straight into the main database from Power Automate was rejected: Microsoft's documentation is inconsistent about whether the Excel connector supports .xlsm, the file is often open on someone's desktop, and there would be no review step.
+
+   ```
+   Microsoft Form ──► Power Automate ──► Submissions workbook (.xlsx, admin-only)
+                                          one table per activity type,
+                                          one row per item
+                                                 │  IREx Admin reviews, then moves rows
+                                                 ▼
+                                         Main database (.xlsm), unchanged
+   ```
 2. **How rows are moved.** Copy and paste by hand (the columns line up), or an *Import Submissions* macro button. The macro would be a new VBA module next to the existing Gantt modules, with no sheet changes. It appends each row inside the right Excel table, marks it *Moved* in the Submissions workbook and flags likely duplicate titles or DOIs.
    Recommended: the macro, with copy and paste still possible.
 3. **Several items per Submission in Microsoft Forms.** Forms has no repeating section, and it's capped at 200 questions. Recommended: the form walks through each activity type in turn. It asks "Any publications to report?" with Yes/No; if Yes, it shows Publication 1, then "Another publication?" which leads to Publication 2, and so on up to a cap. Suggested caps: 5 Publications, 5 Presentations, 3 Media Appearances, 3 Talent Developments, 3 Education Activities and 1 New Project, about 190 questions in total. Anyone with more submits again. The alternative is a Power Apps form with unlimited rows, which needs Power Apps to be available and is more work to maintain.
+
+   ```
+   Any publications to report?  ─No─► Any presentations? ─No─► … ─► Submit
+           │Yes
+      Publication 1 ─► Another publication? ─Yes─► Publication 2 ─► … (up to 5)
+                             │No
+                             ▼
+                    Any presentations? …
+   ```
 4. **Which Publications count.** Recommended: a Publication counts when at least one author is Rehab Staff (a *Rehab Author*), in any position. Test case: a paper whose only TTSH author is a neurologist doesn't count.
 5. **Naming people on the form.** Recommended: the submitter is recorded automatically from their login. Each item has a free-text "Rehab Staff involved (full names)" box, and IREx Admin identifies Family Group from the names, as now.
+
+## Platform facts checked
+
+These were looked up during the interview, so they don't need to be put to the user again.
+
+- **Microsoft Forms** allows at most 200 questions per form ([Microsoft support](https://support.microsoft.com/topic/ec15323d-92a4-4c33-bf88-3fdb9e5b5fea)), and users report hitting the limit earlier. A Likert question counts once per statement. Forms has no repeating section. Branching goes from a question to a later question or section, or to the end. After submitting, the respondent can be offered "Submit another response".
+- **Power Automate Excel Online (Business) connector**: Microsoft's documentation contradicts itself on .xlsm. Older connector docs list only .xlsx and .xlsb. The Office Scripts docs say .xlsm works, chiefly through *Run script*. VBA macros never run from Power Automate. ([connector](https://learn.microsoft.com/connectors/excelonlinebusiness), [Office Scripts](https://learn.microsoft.com/office/dev/scripts/develop/macros-power-automate))
+- **Microsoft Lists forms**: Microsoft has no official list of the column types they support. A third-party checklist says Person and Choice work ([handsontek](https://lists.handsontek.net/column-type-checklist-microsoft-lists-forms/)). Not needed while SharePoint Lists are out of the design.
 
 ## Not yet asked
 
@@ -124,4 +150,4 @@ These come after round 5:
 
 ## Next session
 
-Resume with the user's answers to round 5.
+Resume by putting round 5 to the user again; [handoff.md](handoff.md) says how.
