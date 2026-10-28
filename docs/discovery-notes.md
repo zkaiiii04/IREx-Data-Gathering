@@ -105,32 +105,33 @@ The user questioned old round 3 Q6 (importing existing data). The data flow they
 5. **Reminders.** Two Power Automate flows: a scheduled quarterly reminder, and one IREx Admin runs when needed (about two weeks before a KPI Review, and before 31 Dec for the separate non-IREx collation exercise).
 6. **The six activity types on the form** are Publication, Presentation (poster or oral), Media Appearance, Talent Development, Education Activity and New Project.
 
-## Open questions (round 5)
+## Settled (round 5)
 
-1. **Getting Submissions into the main database without taking over its tables.** Recommended: Form → Power Automate → a separate *Submissions workbook* (.xlsx, in a SharePoint folder only IREx Admin can open). It has one table per activity type, with the same columns in the same order as the main database's tables, plus *Submitted by*, *Submitted on* and *Moved* columns. Each item becomes its own row. IREx Admin then moves the rows they accept into the main database, and from then on those rows are ordinary rows in the main database. Writing straight into the main database from Power Automate was rejected: Microsoft's documentation is inconsistent about whether the Excel connector supports .xlsm, the file is often open on someone's desktop, and there would be no review step.
-
-   ```
-   Microsoft Form ──► Power Automate ──► Submissions workbook (.xlsx, admin-only)
-                                          one table per activity type,
-                                          one row per item
-                                                 │  IREx Admin reviews, then moves rows
-                                                 ▼
-                                         Main database (.xlsm), unchanged
-   ```
-2. **How rows are moved.** Copy and paste by hand (the columns line up), or an *Import Submissions* macro button. The macro would be a new VBA module next to the existing Gantt modules, with no sheet changes. It appends each row inside the right Excel table, marks it *Moved* in the Submissions workbook and flags likely duplicate titles or DOIs.
-   Recommended: the macro, with copy and paste still possible.
-3. **Several items per Submission in Microsoft Forms.** Forms has no repeating section, and it's capped at 200 questions. Recommended: the form walks through each activity type in turn. It asks "Any publications to report?" with Yes/No; if Yes, it shows Publication 1, then "Another publication?" which leads to Publication 2, and so on up to a cap. Suggested caps: 5 Publications, 5 Presentations, 3 Media Appearances, 3 Talent Developments, 3 Education Activities and 1 New Project, about 190 questions in total. Anyone with more submits again. The alternative is a Power Apps form with unlimited rows, which needs Power Apps to be available and is more work to maintain.
+1. **Submissions workbook.** Form → Power Automate → a separate Submissions workbook (.xlsx, in a SharePoint folder only IREx Admin can open). It has one table per activity type, with the same columns in the same order as the main database's tables, plus *Submitted by* and *Submitted on* columns. Each item in a Submission becomes its own row. IREx Admin moves the rows they accept into the main database, and from then on those rows are ordinary rows in the main database. Power Automate never writes to the main database.
 
    ```
-   Any publications to report?  ─No─► Any presentations? ─No─► … ─► Submit
-           │Yes
-      Publication 1 ─► Another publication? ─Yes─► Publication 2 ─► … (up to 5)
-                             │No
-                             ▼
-                    Any presentations? …
+   Form ──► Power Automate ──► Submissions workbook (.xlsx, admin-only)
+                                one table per activity type, one row per item
+                                       │  IREx Admin reviews, then moves rows
+                                       ▼
+                               Main database (.xlsm), unchanged
    ```
-4. **Which Publications count.** Recommended: a Publication counts when at least one author is Rehab Staff (a *Rehab Author*), in any position. Test case: a paper whose only TTSH author is a neurologist doesn't count.
-5. **Naming people on the form.** Recommended: the submitter is recorded automatically from their login. Each item has a free-text "Rehab Staff involved (full names)" box, and IREx Admin identifies Family Group from the names, as now.
+2. **Import Submissions macro.** A new VBA module in the main database, next to the Gantt modules, with no sheet changes. It appends each row inside the right Excel table, records in the Submissions workbook that the row was moved, and flags likely duplicate titles or DOIs. Copy and paste by hand stays possible. The user asked how rows that shouldn't be moved are handled, and wants something cleaner than deleting them: round 6 Q1.
+3. **Several items per Submission.** The user rejected a fixed number of slots per activity type as messy. They want an *add item* button, so a submitter can add as many items as they need. Microsoft Forms can't do that, so this depends on whether Power Apps is available (round 6 Q3).
+4. **Which Publications count.** A Publication counts when at least one author is Rehab Staff (a *Rehab Author*), in any position. A paper whose only TTSH author is a neurologist doesn't count.
+5. **Naming people.** The Submitter is recorded automatically from their login. There's no "Rehab Staff involved" box: the form is sent to Rehab Staff, so the Submitter is the Rehab Staff member. (What fills the main database's other name columns is round 6 Q4.)
+
+## Open questions (round 6)
+
+1. **Rows that aren't moved.** Recommended: replace the *Moved* column with a *Decision* column (blank, Import, Reject) and a *Reason* column. IREx Admin sets Import or Reject. The macro imports the Import rows and stamps them *Imported* with the date; Reject rows stay as *Rejected*. Each table is filtered to show blank Decisions only, so IREx Admin sees just what's waiting. Nothing is deleted, so "what happened to my paper?" always has an answer. No automatic email to the Submitter. The words avoid "Accepted", which is already a Publication and Presentation status.
+2. **Drop "Checked".** Round 3 had each record arrive as *New* and be marked *Checked*. With the review now happening in the Submissions workbook, moving a row into the main database *is* the check, and a Checked column would change the main database's layout. Recommended: drop New/Checked. Every row in the main database counts. This would replace round 3 Q4 and round 4's "Checked" edit.
+3. **Add item button.** Recommended: if Power Apps is available, build the form as a Power Apps canvas app with an *Add another* button per activity type and a list of the items added so far. On submit, the app calls a Power Automate flow that writes the rows to the Submissions workbook using IREx Admin's connection, so submitters never need access to the workbook. Canvas apps that use only standard connectors (Excel Online, SharePoint) are included in Microsoft 365 E licences unless IT has disabled them. To check: open make.powerapps.com with a TTSH login and try to create a blank canvas app. If Power Apps isn't available, fall back to Microsoft Forms. Branching would make it feel like "Add another?" up to a cap, with the last slot saying "Have more? Submit another response". The form is the only part that changes between the two options; the Submissions workbook and the macro stay the same.
+
+   ```
+   Power Apps form ──(Add another … Submit)──► Power Automate ──► Submissions workbook
+   ```
+4. **Name columns in the main database.** Recommended: the Submitter's name goes into each item's person column (1st author / TTSH Contributor, presenter, Media full name, Talent Development recipient, Education trainer, Project PI). IREx Admin adds other Rehab Staff by hand when they want to, as now. When two Rehab Authors both report the same paper, the macro flags the duplicate and IREx Admin rejects one. Roles that may not be the Submitter's (a Co-I reporting a Project led by someone else) get their own question when the per-activity questions are drafted.
+5. **ADR.** Record in `docs/adr/` that the main database stays the hand-edited source of truth, with Submissions staged in a separate workbook and moved by IREx Admin: no sync, no SharePoint Lists. Recommended: yes.
 
 ## Platform facts checked
 
@@ -138,11 +139,12 @@ These were looked up during the interview, so they don't need to be put to the u
 
 - **Microsoft Forms** allows at most 200 questions per form ([Microsoft support](https://support.microsoft.com/topic/ec15323d-92a4-4c33-bf88-3fdb9e5b5fea)), and users report hitting the limit earlier. A Likert question counts once per statement. Forms has no repeating section. Branching goes from a question to a later question or section, or to the end. After submitting, the respondent can be offered "Submit another response".
 - **Power Automate Excel Online (Business) connector**: Microsoft's documentation contradicts itself on .xlsm. Older connector docs list only .xlsx and .xlsb. The Office Scripts docs say .xlsm works, chiefly through *Run script*. VBA macros never run from Power Automate. ([connector](https://learn.microsoft.com/connectors/excelonlinebusiness), [Office Scripts](https://learn.microsoft.com/office/dev/scripts/develop/macros-power-automate))
+- **Power Apps**: canvas apps that use only standard connectors (SharePoint, Excel Online, Outlook) are covered by Microsoft 365 E1/E3/E5 licences, unless IT has disabled them. Premium connectors (SQL, Dataverse) need a paid licence for every user. A flow that a Power App calls can use its owner's connection rather than the user's, so users don't need access to the target file. These come from community sources ([Microsoft Community](https://techcommunity.microsoft.com/discussions/microsoft-365/power-platform-licenses-and-features-in-office-365-e3-subscription/2553776), [run-only users](https://community.powerapps.com/t5/General-Power-Automate/All-about-quot-Manage-Run-Only-Users-quot/m-p/123305)), so test them in TTSH's tenant. Whether TTSH allows Power Apps is unknown.
 - **Microsoft Lists forms**: Microsoft has no official list of the column types they support. A third-party checklist says Person and Choice work ([handsontek](https://lists.handsontek.net/column-type-checklist-microsoft-lists-forms/)). Not needed while SharePoint Lists are out of the design.
 
 ## Not yet asked
 
-These come after round 5:
+These come after round 6:
 
 - Producing KPI figures and the KPI Review report: refreshing the main database's queries and pivots, and whether the PowerPoint can be fed from them more directly.
 - Rollout: how staff are introduced to the new process, and running it alongside the old workbook for one cycle.
@@ -150,4 +152,4 @@ These come after round 5:
 
 ## Next session
 
-Resume by putting round 5 to the user again; [handoff.md](handoff.md) says how.
+Resume by putting round 6 to the user again; [handoff.md](handoff.md) says how.

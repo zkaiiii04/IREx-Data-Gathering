@@ -32,6 +32,10 @@ _Avoid_: committee meeting, bi-annual report, department meeting
 One completed response to the reporting form. A single Submission may report several Research Outputs, Talent Developments, Education Activities and Projects.
 _Avoid_: entry, response, form
 
+**Submitter**:
+The person who completes a Submission. The form is sent to Rehab Staff, so the Submitter is the member of Rehab Staff the reported items belong to.
+_Avoid_: reporter, respondent, user
+
 ## Research activity
 
 **Research Output**:

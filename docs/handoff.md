@@ -1,9 +1,9 @@
 # Handoff: resuming the design interview
 
-The design interview on streamlining IREx's research data collection is paused at **round 5, unanswered**. These three files hold everything decided so far:
+The design interview on streamlining IREx's research data collection is paused at **round 6, unanswered**. These three files hold everything decided so far:
 
 - [GLOSSARY.md](../GLOSSARY.md): the canonical terms. Write in them.
-- [discovery-notes.md](discovery-notes.md): the problem, what the two workbooks contain, decisions settled in rounds 1–4, the round-5 questions with recommendations, facts already checked, and topics not yet asked.
+- [discovery-notes.md](discovery-notes.md): the problem, what the two workbooks contain, decisions settled in rounds 1–5, the round-6 questions with recommendations, facts already checked, and topics not yet asked.
 - `git log` on this branch: one commit per round.
 
 This file holds only what those three don't: how to resume, and the conversational context.
@@ -12,9 +12,9 @@ This file holds only what those three don't: how to resume, and the conversation
 
 1. Load the `grilling` and `domain-modeling` skills with the Skill tool. (`/grill-with-docs` loads both, but only the user can type it.)
 2. Read the glossary and the discovery notes in full.
-3. Put round 5 to the user again, worded from the notes. Use the grilling format: numbered ❓ questions, each with a ➡️ recommendation, worded so that "yes" accepts it. Include the two flow diagrams. Then wait for answers.
+3. Put round 6 to the user again, worded from the notes. Use the grilling format: numbered ❓ questions, each with a ➡️ recommendation, worded so that "yes" accepts it. Then wait for answers.
 4. As answers arrive: update the glossary as soon as a term is settled, move answered questions into a new "Settled (round N)" section, write the next round's frontier as "Open questions (round N+1)", then commit and push. When an answer reverses an earlier decision, say so in the settled entry ("This replaces round X's …").
-5. After the user confirms round 5 Q1 (the Submissions workbook), offer an ADR in `docs/adr/` (format in the `domain-modeling` skill). It would record that the main database stays the hand-edited source of truth, with no sync. This offer has already been made once and is pending.
+5. Round 6 Q5 offers an ADR in `docs/adr/` (format in the `domain-modeling` skill). It would record that the main database stays the hand-edited source of truth, with no sync. Write it if the user says yes.
 6. The interview is finished when the "Not yet asked" list in the notes is empty and the user confirms there's a shared understanding. Build nothing before that.
 
 ## Context from the conversation
@@ -33,8 +33,10 @@ This file holds only what those three don't: how to resume, and the conversation
   - The RIE Namelist as the member list.
   - One activity per response.
   - Fixed reminder dates of 30 Jun and 31 Dec.
+  - A fixed number of item slots per activity type in Microsoft Forms (round 5). The user wants an add item button. Forms with a cap is only the fallback if Power Apps isn't available.
+  - A "Rehab Staff involved" names box on the form (round 5).
 - **"IREx Member" was a misunderstanding.** It meant the IREx Committee. Reporting is open to all Rehab Staff, so no member list is needed for the form. The user offered a committee list for a later session, but nothing currently depends on it.
-- **Microsoft 365 enterprise, no Copilot agents.** Forms and Power Automate are confirmed. Power BI is unconfirmed, and Power Apps hasn't been asked about (round 5 Q3 raises it).
+- **Microsoft 365 enterprise, no Copilot agents.** Forms and Power Automate are confirmed. Power BI is unconfirmed. Whether TTSH allows Power Apps is unknown, and the user is checking (round 6 Q3).
 
 ## The workbooks
 
