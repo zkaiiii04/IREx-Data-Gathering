@@ -136,38 +136,57 @@ The user questioned old round 3 Q6 (importing existing data). The data flow they
 3. **Reminder recipients.** IREx Admin keeps a list of addresses in the reminder flows. No distribution lists.
 4. **KPI Review out of scope.** The main database, its pivots and visualisation tabs are unchanged, so the KPI Review PowerPoint is produced as now.
 
-## Open questions (round 8)
+## Settled (round 8)
 
-1. **What "Forms and Excel" means.** Possible readings:
-   - **a. Both, side by side.** Staff pick either the Form or a shared blank input workbook in SharePoint (no previous data, no finance). Both feed the same review, and the Import macro reads from both.
-   - **b. Form first, Excel as backup.** Build the Form. Build the Excel input only if the Form turns out too tedious.
-   - **c. The current Excel file plus Power Automate reminders**, with the Form alongside it.
-   Recommended: **b**. Two live intake routes means two places to review, duplicates between them, and staff unsure which one to use. If the user means **a**, the Excel input is a blank, separate workbook, never a copy of the main database.
-2. **Status updates for items already recorded.** A paper reported as Under Review in March gets Published in August. Recommended: the Submitter reports it again with the new status. The macro flags the title or DOI as matching an existing row. IREx Admin updates that row's status and date by hand, then sets Decision to a third value, **Merged** (with the row number as the Reason), so it isn't imported twice. The form says "Already reported this but the status changed? Report it again with the new status."
-3. **Publication questions.** Recommended form questions, mapped to the main database's columns:
-   - Title (required)
-   - Status: Under Review / Accepted / Published (required)
-   - Date: the publication date, or the acceptance or submission date if it isn't published yet (required)
-   - Journal name (required)
-   - First author's name (required, often not Rehab Staff)
-   - Category of Article (choice, using the main database's existing values, which still need listing)
-   - DOI or PMID (optional)
-   - Associated Project (optional, free text)
+1. **Form and Excel, side by side.** The current Excel file, with automated reminders, stays alongside the Form. Staff can report through either one. This replaces round 2's "staff no longer receive a copy of the main database". How the Excel file is produced, shared and collected is in round 9 Q1–Q3.
+2. **Duplicates.** When something is already recorded and its status changes, the Submitter reports it again. When the Import macro finds a likely duplicate (matching title or DOI), it tells IREx Admin which rows they are and highlights them. IREx Admin checks and fixes them by hand. There's no *Merged* Decision value: Decision stays blank, Import or Reject.
+3. **Publication questions.** These are as proposed in round 8. The Submissions workbook keeps the main database's current columns, in the same order. **TTSH Contributor isn't filled in automatically.** IREx Admin fills it in, and *Submitted by* shows who the Submitter was. For Publications, this replaces round 6 Q4. The values for Category of Article are still needed from the user.
+4. **Presentation questions** are as proposed: Title, Type (Poster/Oral), Status, Date of Presentation, Conference name, Organising body, Country (default Singapore) and Related Project. Full Name = Submitter. Event Start/End aren't asked.
 
-   Filled by the form: TTSH Contributor = Submitter. Left to IREx Admin: No., Journal Citation, JIF percentiles. Not asked: Full Author Listing and Other Remarks, which are always empty.
-4. **Presentation questions.** Recommended:
-   - Title (required)
-   - Type: Poster / Oral (required)
-   - Status: Accepted / Presented (required)
-   - Date of Presentation (required)
-   - Conference name (required)
-   - Organising body (optional)
-   - Country (default Singapore)
-   - Related Project (optional)
+## Open questions (round 9)
 
-   Filled by the form: Full Name = Submitter. Not asked: Event Start/End, which IREx Admin can fill if wanted.
+1. **Producing the staff Excel file.** Recommended: an *Export Staff Copy* macro in the main database writes a fresh copy at the start of each cycle, so the staff file no longer drifts from the main database. It leaves out the team-only tabs, every project finance and admin column (keeping Project name, PI, category and status) and Talent Development amounts. This also covers the KIV need (round 7 Q2): staff can see what's already recorded.
+2. **Sharing the file and where new rows go.** Recommended: one .xlsx in a SharePoint folder that Rehab Staff can edit, opened in Excel for the web, with no macros in it. The link goes in each reminder. On each tab, the existing records are read-only, and staff type new items into a separate editable *New entries* table with a *Your name* column. This avoids rows typed below a table, and stops anyone editing an existing record.
+3. **One review queue.** Recommended: the Import macro first collects the staff file's New entries into the Submissions workbook, alongside the Form's rows, and records where each row came from (Form or Excel). IREx Admin then reviews everything in one place, as in round 6. The next Export Staff Copy runs only after collecting, so no new entries are lost.
+4. **Media Appearance questions.** Recommended, one outlet per item:
+   - Platform (Digital News / Social Media / Websites & Blogs / Newspaper / Radio / Press Release), required
+   - Date, required
+   - Title & Description, required
+   - Source (outlet name), required
+   - Link, optional
+   - Associated Project or programme, optional
 
-The questions for Media Appearance, Talent Development, Education Activity and New Project follow in round 9.
+   Full name = Submitter, which IREx Admin can change to a programme name.
+5. **Talent Development questions.** Recommended:
+   - Category (Talent Development grant / Special Award), required
+   - Award Description, required
+   - Year, required
+   - For a grant only: LOA Start, LOA End and Grant Amount
+   - Project, optional
+
+   Name = Submitter. Family Group is left to IREx Admin.
+6. **Education Activity questions.** Recommended:
+   - Title, required
+   - Date, required
+   - Type (Workshop/Masterclass / Webinar / Presentation/Sharing), required
+   - Audience (Professional / Patients, Care Givers & Public), required
+   - Local/Overseas, required
+   - Organisers, optional
+   - Partner, optional
+   - Number of participants, optional
+
+   Trainers = Submitter, and IREx Admin adds others. Year is worked out from the Date.
+7. **New Project questions.** Recommended:
+   - Project Name, required
+   - Category (Research / Innovation / Lien Foundation), required
+   - PI, required (asked, because the Submitter may be a Co-I)
+   - Co-I/Collaborators, optional
+   - Grant Partner, required
+   - Grant Type (Intramural / Extramural / Intramural – Talent Development), required
+   - Status (Applied / Awarded), required
+   - Grant Ref No, LOA Start/End, Grant Amount and Amount Awarded to TTSH, if known
+
+   Every other finance and admin column is left to IREx Admin.
 
 ## Platform facts checked
 
@@ -181,13 +200,13 @@ These were looked up during the interview, so they don't need to be put to the u
 
 ## Not yet asked
 
-These come after round 8:
+These come after round 9:
 
 - Rollout: how staff are introduced to the new process, and running it alongside the old workbook for one cycle.
-- The exact questions for Media Appearance, Talent Development, Education Activity and New Project (Publication and Presentation are in round 8). Derived columns (No., the combined text columns, JIF percentile) stay with IREx Admin.
-- Revisit round 7 Q2 (letting staff check their existing records), which is KIV.
+- Category of Article values for the Publication question (needed from the user).
+- Revisit round 7 Q2 (letting staff check their existing records), which is KIV. Round 9 Q1 may cover it.
 - Power Apps: the user hasn't checked make.powerapps.com yet.
 
 ## Next session
 
-Resume by putting round 8 to the user again; [handoff.md](handoff.md) says how.
+Resume by putting round 9 to the user again; [handoff.md](handoff.md) says how.
