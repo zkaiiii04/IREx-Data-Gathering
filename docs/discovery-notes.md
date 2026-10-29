@@ -129,16 +129,45 @@ The user questioned old round 3 Q6 (importing existing data). The data flow they
 4. **Name columns.** The Submitter's name goes into each item's person column (TTSH Contributor, presenter, Media full name, Talent Development recipient, Education trainer, Project PI). IREx Admin adds other Rehab Staff by hand, as now. When two Rehab Authors both report the same paper, the macro flags it and IREx Admin rejects one. (A Co-I reporting a Project led by someone else is left for the per-activity questions.)
 5. **ADR written:** [0001](adr/0001-main-database-stays-hand-edited.md).
 
-## Open questions (round 7)
+## Settled (round 7)
 
-1. **Fallback if Power Apps isn't available.** The user asked whether Excel would be next best: either the current file with automated reminders, or a shared macro-enabled file where someone types their name and their records load. Options, best first:
-   - **a. Forms with "Add another?" branching.** The Submitter only sees an item once they ask for it. The cap (5 Publications, 5 Presentations, 3 of the others, 1 New Project) only shows up when someone has more than that in one quarter, and the last slot says "submit another response". Fully automatic into the Submissions workbook. Works on a phone. **Recommended.**
-   - **b. A shared input workbook in SharePoint**, opened in Excel for the web. It has blank tables only (no previous data, no finance), with the same columns as the main database, a "Your name" column and dropdowns. There's no limit on rows, and the Import macro reads it just like the Submissions workbook. Downsides: everyone can see and edit everyone else's new rows, the Submitter isn't recorded automatically, and rows can still land outside a table.
-   - **c. The current file with Power Automate reminders.** The easiest to set up, but it brings back every current problem: the copy drifts from the main database, every project's finances are visible to everyone, rows are copied by hand, and rows get typed below the tables.
-   - **d. A macro-enabled file where staff type their name to load their records.** Not recommended. Every person's data, finances included, would have to be inside the one file. Office blocks macros by default in files that come from email or the internet. Macros don't run in Excel for the web. And names have several spellings each, so loading "their" records would miss some.
-2. **Letting staff check what's already recorded.** This is why the current file carries previous data, and the new design has no such view yet. Recommended: (a) a confirmation email after each Submission, listing the items reported; (b) an *Export Records* macro button in the main database, which IREx Admin runs before each reminder. It writes the current year's records to a read-only .xlsx in SharePoint that all Rehab Staff can open: Research Outputs, Talent Developments without amounts, Education Activities, and Projects with name, PI, category and status only. No finance columns. Staff search for their own name. The file is a copy made for reading; it doesn't own any main database table. The reminder email links to it and to the form.
-3. **Who gets the reminders.** Power Automate needs recipients, and there's no Rehab Staff list. Recommended: use existing Outlook distribution lists (per Family Group, or one for all of rehab), with IREx Admin choosing which ones the two reminder flows send to. If none exist, IREx Admin keeps a short list of addresses in the flow.
-4. **Producing the KPI Review.** The main database, its pivots and its visualisation tabs are unchanged, so the KPI Review is produced as now. Recommended: keep changes to the KPI Review PowerPoint out of scope for this design.
+1. **Fallback if Power Apps isn't available.** The user's answer was "built forms and built excel with automated reminders". This is read as *build both a Form and an Excel input, with automated reminders*, but which Excel and how the two relate needs confirming: round 8 Q1. Power Apps still hasn't been checked.
+2. **Letting staff check what's already recorded: KIV.** The need is real, because it's why the current file carries previous data, but it's parked. The proposal on hold: a confirmation email after each Submission, plus an *Export Records* macro writing this year's records, with no finance columns, to a read-only file Rehab Staff can open.
+3. **Reminder recipients.** IREx Admin keeps a list of addresses in the reminder flows. No distribution lists.
+4. **KPI Review out of scope.** The main database, its pivots and visualisation tabs are unchanged, so the KPI Review PowerPoint is produced as now.
+
+## Open questions (round 8)
+
+1. **What "Forms and Excel" means.** Possible readings:
+   - **a. Both, side by side.** Staff pick either the Form or a shared blank input workbook in SharePoint (no previous data, no finance). Both feed the same review, and the Import macro reads from both.
+   - **b. Form first, Excel as backup.** Build the Form. Build the Excel input only if the Form turns out too tedious.
+   - **c. The current Excel file plus Power Automate reminders**, with the Form alongside it.
+   Recommended: **b**. Two live intake routes means two places to review, duplicates between them, and staff unsure which one to use. If the user means **a**, the Excel input is a blank, separate workbook, never a copy of the main database.
+2. **Status updates for items already recorded.** A paper reported as Under Review in March gets Published in August. Recommended: the Submitter reports it again with the new status. The macro flags the title or DOI as matching an existing row. IREx Admin updates that row's status and date by hand, then sets Decision to a third value, **Merged** (with the row number as the Reason), so it isn't imported twice. The form says "Already reported this but the status changed? Report it again with the new status."
+3. **Publication questions.** Recommended form questions, mapped to the main database's columns:
+   - Title (required)
+   - Status: Under Review / Accepted / Published (required)
+   - Date: the publication date, or the acceptance or submission date if it isn't published yet (required)
+   - Journal name (required)
+   - First author's name (required, often not Rehab Staff)
+   - Category of Article (choice, using the main database's existing values, which still need listing)
+   - DOI or PMID (optional)
+   - Associated Project (optional, free text)
+
+   Filled by the form: TTSH Contributor = Submitter. Left to IREx Admin: No., Journal Citation, JIF percentiles. Not asked: Full Author Listing and Other Remarks, which are always empty.
+4. **Presentation questions.** Recommended:
+   - Title (required)
+   - Type: Poster / Oral (required)
+   - Status: Accepted / Presented (required)
+   - Date of Presentation (required)
+   - Conference name (required)
+   - Organising body (optional)
+   - Country (default Singapore)
+   - Related Project (optional)
+
+   Filled by the form: Full Name = Submitter. Not asked: Event Start/End, which IREx Admin can fill if wanted.
+
+The questions for Media Appearance, Talent Development, Education Activity and New Project follow in round 9.
 
 ## Platform facts checked
 
@@ -152,11 +181,13 @@ These were looked up during the interview, so they don't need to be put to the u
 
 ## Not yet asked
 
-These come after round 7:
+These come after round 8:
 
 - Rollout: how staff are introduced to the new process, and running it alongside the old workbook for one cycle.
-- The exact questions for each activity type: only what submitters know, mapped to the main database's columns. Derived columns (No., the combined text columns, JIF percentile) stay with IREx Admin.
+- The exact questions for Media Appearance, Talent Development, Education Activity and New Project (Publication and Presentation are in round 8). Derived columns (No., the combined text columns, JIF percentile) stay with IREx Admin.
+- Revisit round 7 Q2 (letting staff check their existing records), which is KIV.
+- Power Apps: the user hasn't checked make.powerapps.com yet.
 
 ## Next session
 
-Resume by putting round 7 to the user again; [handoff.md](handoff.md) says how.
+Resume by putting round 8 to the user again; [handoff.md](handoff.md) says how.
