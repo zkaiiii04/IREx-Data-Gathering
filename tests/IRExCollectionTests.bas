@@ -82,7 +82,14 @@ Private Function TestNames() As Variant
         "Check_ignores_differences_of_spacing_case_line_breaks_and_date_or_number_format", _
         "Check_flags_a_one_letter_spelling_fix", _
         "Check_matches_rows_by_Export_ID_whatever_order_the_sheet_is_in", _
-        "Check_finds_a_record_by_No_after_its_title_was_changed_in_the_Main_Database")
+        "Check_finds_a_record_by_No_after_its_title_was_changed_in_the_Main_Database", _
+        "Check_notes_a_row_typed_again_as_already_recorded_and_marks_its_differences", _
+        "Check_lists_rows_whose_record_it_cant_find_in_the_Main_Database", _
+        "Check_lists_rows_deleted_from_the_Collection_Workbook", _
+        "Check_lists_extra_columns_and_stray_values_without_comparing_them", _
+        "Check_ignores_blank_rows_and_rows_of_spaces", _
+        "Check_summary_counts_each_kind_of_row_per_tab", _
+        "Check_of_a_fresh_export_marks_nothing")
 End Function
 
 Private Sub Setup(ByVal fixtures As String, ByVal outDir As String, ByVal inLibreOffice As Boolean)
@@ -127,6 +134,13 @@ Private Sub Dispatch(ByVal name As String)
         Case "Check_flags_a_one_letter_spelling_fix": Check_flags_a_one_letter_spelling_fix
         Case "Check_matches_rows_by_Export_ID_whatever_order_the_sheet_is_in": Check_matches_rows_by_Export_ID_whatever_order_the_sheet_is_in
         Case "Check_finds_a_record_by_No_after_its_title_was_changed_in_the_Main_Database": Check_finds_a_record_by_No_after_its_title_was_changed_in_the_Main_Database
+        Case "Check_notes_a_row_typed_again_as_already_recorded_and_marks_its_differences": Check_notes_a_row_typed_again_as_already_recorded_and_marks_its_differences
+        Case "Check_lists_rows_whose_record_it_cant_find_in_the_Main_Database": Check_lists_rows_whose_record_it_cant_find_in_the_Main_Database
+        Case "Check_lists_rows_deleted_from_the_Collection_Workbook": Check_lists_rows_deleted_from_the_Collection_Workbook
+        Case "Check_lists_extra_columns_and_stray_values_without_comparing_them": Check_lists_extra_columns_and_stray_values_without_comparing_them
+        Case "Check_ignores_blank_rows_and_rows_of_spaces": Check_ignores_blank_rows_and_rows_of_spaces
+        Case "Check_summary_counts_each_kind_of_row_per_tab": Check_summary_counts_each_kind_of_row_per_tab
+        Case "Check_of_a_fresh_export_marks_nothing": Check_of_a_fresh_export_marks_nothing
         Case Else: Fail "no such test"
     End Select
 End Sub
@@ -577,6 +591,99 @@ Private Sub Check_finds_a_record_by_No_after_its_title_was_changed_in_the_Main_D
     AssertEqual "Changed: No. 4, Virtual reality balance training for older adults", NoteOf(ws, r), "note"
 End Sub
 
+' A status update typed as a new row (no Export ID) for Publication No. 6, and
+' the first Media Appearance typed again exactly.
+Private Sub Check_notes_a_row_typed_again_as_already_recorded_and_marks_its_differences()
+    Dim wb As Object, ws As Object, r As Long
+    Set wb = OpenWorkbook(CheckFixture())
+    Set ws = wb.Worksheets("Publications")
+    r = RowWithoutExportId(ws, "Title of Article", "Dysphagia screening in acute stroke")
+    AssertEqual "Already recorded as No. 6, Dysphagia screening in acute stroke", NoteOf(ws, r), "note"
+    AssertEqual True, IsBold(ws, r, "Status"), "differing cell bold"
+    AssertEqual "Main Database: Under Review", CommentOf(ws, r, "Status"), "comment"
+    AssertEqual YELLOW, FillOf(ws, r, "Title of Article"), "yellow, as it differs"
+    Set ws = wb.Worksheets("Media")
+    r = RowWithoutExportId(ws, MEDIA_OUTLET, "The Test Times")
+    AssertEqual "Already recorded as No. 1, New stroke rehab centre opens", NoteOf(ws, r), "Media note"
+    AssertTrue FillOf(ws, r, MEDIA_OUTLET) <> GREEN And FillOf(ws, r, MEDIA_OUTLET) <> YELLOW, "no fill when nothing differs"
+End Sub
+
+' PUB-9999 isn't in the lookup. EDU-0001 was exported as "Spasticity workshop"
+' and has no No., so it can't be found after the Main Database renamed it.
+' EDU-0005 is the label row below tbl_Education, which has no title to match.
+Private Sub Check_lists_rows_whose_record_it_cant_find_in_the_Main_Database()
+    Dim wb As Object, summary As String
+    Set wb = OpenWorkbook(CheckFixture())
+    AssertEqual "Can't find in Main Database", NoteOf(wb.Worksheets("Publications"), RowOf(wb.Worksheets("Publications"), "Export ID", "PUB-9999")), "PUB-9999 note"
+    AssertEqual "Can't find in Main Database", NoteOf(wb.Worksheets("Education"), RowOf(wb.Worksheets("Education"), "Export ID", "EDU-0001")), "EDU-0001 note"
+    summary = SheetText(wb.Worksheets("Summary"))
+    AssertContains summary, "Can't find in Main Database|Publications|10|PUB-9999|", "PUB-9999 listed"
+    AssertContains summary, "Can't find in Main Database|Education|4|EDU-0001|Spasticity workshop", "EDU-0001 listed"
+    AssertContains summary, "Can't find in Main Database|Education|8|EDU-0005|", "EDU-0005 listed"
+End Sub
+
+' PUB-0004 is in the lookup but no longer in the Collection Workbook.
+Private Sub Check_lists_rows_deleted_from_the_Collection_Workbook()
+    Dim wb As Object
+    Set wb = OpenWorkbook(CheckFixture())
+    AssertContains SheetText(wb.Worksheets("Summary")), "Deleted|Publications||PUB-0004|Upper limb telerehabilitation", "PUB-0004"
+    AssertEqual 1, CountOf(SheetText(wb.Worksheets("Summary")), vbLf & "Deleted|"), "only one"
+End Sub
+
+' Staff added a "My notes" column and typed "see email" in an unheaded column.
+Private Sub Check_lists_extra_columns_and_stray_values_without_comparing_them()
+    Dim wb As Object, ws As Object, summary As String
+    Set wb = OpenWorkbook(CheckFixture())
+    Set ws = wb.Worksheets("Publications")
+    summary = SheetText(wb.Worksheets("Summary"))
+    AssertContains summary, "Extra column|Publications|||My notes", "extra column"
+    AssertContains summary, "Value outside the exported columns|Publications|6|T6|see email", "stray value"
+    AssertEqual False, IsBold(ws, RowOf(ws, "Export ID", "PUB-0001"), "My notes"), "extra column not compared"
+    AssertUnmarked ws, "PUB-0001"
+End Sub
+
+Private Sub Check_ignores_blank_rows_and_rows_of_spaces()
+    Dim wb As Object, ws As Object, r As Long, c As Long
+    Set wb = OpenWorkbook(CheckFixture())
+    Set ws = wb.Worksheets("Publications")
+    For r = HeaderCell(ws, "Export ID").Row + 1 To ws.UsedRange.Row + ws.UsedRange.Rows.Count - 1
+        If Squash(ws.Cells(r, 2).Value) = "" And Squash(ws.Cells(r, 4).Value) = "" Then
+            For c = 1 To 15
+                If ws.Cells(r, c).Interior.Color = GREEN Then Fail "blank row " & r & " is green"
+            Next c
+        End If
+    Next r
+    AssertEqual "2|1|1|1|1|1", SummaryRow(wb, "Publications"), "Publications counts"
+End Sub
+
+Private Sub Check_summary_counts_each_kind_of_row_per_tab()
+    Dim wb As Object, ws As Object
+    Set wb = OpenWorkbook(CheckFixture())
+    Set ws = wb.Worksheets("Summary")
+    AssertEqual "Tab|New|Changed|Already recorded|Deleted|Can't find in Main Database|Extra columns", _
+        Join(Array(ws.Range("A3").Value, ws.Range("B3").Value, ws.Range("C3").Value, ws.Range("D3").Value, _
+        ws.Range("E3").Value, ws.Range("F3").Value, ws.Range("G3").Value), "|"), "headings"
+    AssertEqual "2|1|1|1|1|1", SummaryRow(wb, "Publications"), "Publications"
+    AssertEqual "0|1|0|0|0|0", SummaryRow(wb, "Poster & Oral Presentation"), "Presentations"
+    AssertEqual "1|1|1|0|0|0", SummaryRow(wb, "Media"), "Media"
+    AssertEqual "0|1|0|0|0|0", SummaryRow(wb, "Talent Development"), "Talent Development"
+    AssertEqual "1|0|0|0|2|0", SummaryRow(wb, "Education"), "Education"
+    AssertEqual "0|1|0|0|0|0", SummaryRow(wb, "Projects"), "Projects"
+End Sub
+
+' Export, then check straight away: only the Education label row (which has
+' no title to match on) is reported.
+Private Sub Check_of_a_fresh_export_marks_nothing()
+    Dim cwPath As String, wb As Object, t As Variant
+    cwPath = ExportFixture(2025)
+    Set wb = OpenWorkbook(RunCheckCollectionWorkbook(cwPath, AdminFolder() & "IREX_Rehab_Data_Collection_CY2025 " & ChrW(8211) & " ID lookup.xlsx", _
+        OpenMainDatabase(), AdminFolder()))
+    For Each t In Array("Publications", "Poster & Oral Presentation", "Media", "Talent Development", "Projects")
+        AssertEqual "0|0|0|0|0|0", SummaryRow(wb, CStr(t)), CStr(t)
+    Next t
+    AssertEqual "0|0|0|0|1|0", SummaryRow(wb, "Education"), "Education"
+End Sub
+
 ' ---------------------------------------------------------------------------
 ' Helpers: running the macros
 ' ---------------------------------------------------------------------------
@@ -792,6 +899,35 @@ Private Function RowOf(ByVal ws As Object, ByVal header As String, ByVal value A
             Exit Function
         End If
     Next r
+End Function
+
+Private Function RowWithoutExportId(ByVal ws As Object, ByVal header As String, ByVal value As Variant) As Long
+    Dim h As Object, id As Object, r As Long
+    Set h = HeaderCell(ws, header)
+    Set id = HeaderCell(ws, "Export ID")
+    If h Is Nothing Or id Is Nothing Then Exit Function
+    For r = h.Row + 1 To ws.UsedRange.Row + ws.UsedRange.Rows.Count - 1
+        If Squash(ws.Cells(r, h.Column).Value) = Squash(value) And Squash(ws.Cells(r, id.Column).Value) = "" Then
+            RowWithoutExportId = r
+            Exit Function
+        End If
+    Next r
+End Function
+
+' A tab's counts on the Summary sheet, "|"-separated.
+Private Function SummaryRow(ByVal wb As Object, ByVal tabName As String) As String
+    Dim ws As Object, r As Long, c As Long, s As String
+    Set ws = wb.Worksheets("Summary")
+    For r = 1 To 20
+        If ws.Cells(r, 1).Value = tabName Then
+            For c = 2 To 7
+                s = s & "|" & Show(ws.Cells(r, c).Value)
+            Next c
+            SummaryRow = Mid(s, 2)
+            Exit Function
+        End If
+    Next r
+    SummaryRow = "(no summary row " & tabName & ")"
 End Function
 
 Private Function CellOf(ByVal ws As Object, ByVal r As Long, ByVal header As String) As Object

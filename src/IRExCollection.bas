@@ -426,7 +426,7 @@ Private Sub CheckTab(ByVal cw As Object, ByVal mainDatabase As Object, ByVal t A
                     Mark ws, rows, r, mdCol, noteCol, 0, "Can't find in Main Database"
                     Count t, COUNT_CANT_FIND, "Can't find in Main Database", sheetRow, id, CellText(LookupTitle(li))
                 Else
-                    diffs = MarkDifferences(ws, rows, r, mdCol, md, found)
+                    diffs = MarkDifferences(ws, rows, r, mdCol, md, found, False)
                     If diffs > 0 Then
                         Mark ws, rows, r, mdCol, noteCol, YELLOW, "Changed: " & RecordName(md, spec, found)
                         Count t, COUNT_CHANGED, "Changed", sheetRow, id, RecordName(md, spec, found)
@@ -438,7 +438,7 @@ Private Sub CheckTab(ByVal cw As Object, ByVal mainDatabase As Object, ByVal t A
                     Mark ws, rows, r, mdCol, noteCol, GREEN, "New"
                     Count t, COUNT_NEW, "New", sheetRow, "", CellText(RowField(rows, r, spec.TitleHeader))
                 Else
-                    diffs = MarkDifferences(ws, rows, r, mdCol, md, found)
+                    diffs = MarkDifferences(ws, rows, r, mdCol, md, found, True)
                     If diffs > 0 Then
                         Mark ws, rows, r, mdCol, noteCol, YELLOW, "Already recorded as " & RecordName(md, spec, found)
                     Else
@@ -476,10 +476,14 @@ End Sub
 
 ' Bolds each compared cell that differs from the Main Database record and puts
 ' the Main Database value in a comment on it. Returns how many differ.
-Private Function MarkDifferences(ByVal ws As Object, ByRef rows As SheetRows, ByVal r As Long, ByRef mdCol() As Long, ByRef md As SheetRows, ByVal found As Long) As Long
-    Dim c As Long, cell As Object
+' filledOnly skips cells left empty: a row typed again often holds only the
+' fields that changed.
+Private Function MarkDifferences(ByVal ws As Object, ByRef rows As SheetRows, ByVal r As Long, ByRef mdCol() As Long, ByRef md As SheetRows, ByVal found As Long, ByVal filledOnly As Boolean) As Long
+    Dim c As Long, cell As Object, inScope As Boolean
     For c = 1 To rows.ColCount
-        If mdCol(c) > 0 Then
+        inScope = (mdCol(c) > 0)
+        If inScope And filledOnly Then inScope = Not IsBlank(rows.Values(r, c))
+        If inScope Then
             If Not SameValue(rows.Values(r, c), md.Values(found, mdCol(c))) Then
                 Set cell = ws.Cells(rows.RowNums(r), rows.Cols(c))
                 cell.Font.Bold = True
