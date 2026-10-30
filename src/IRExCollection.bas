@@ -6,15 +6,31 @@ Attribute VB_Name = "IRExCollection"
 '   CheckCollectionWorkbook   compares a Collection Workbook with the Main Database
 '                             and saves a highlighted copy
 '
-' Neither macro changes the Main Database. Spec: GitHub issue #1.
+' Neither macro changes the Main Database. Run them from the Macros dialog
+' (Alt+F8) or a Quick Access Toolbar button. Spec: GitHub issue #1.
+'
+' The first run of each asks for the two folders (the SharePoint folder Rehab
+' Staff can edit, and the admin-only folder) and remembers them for this
+' Windows user. To choose again, run ResetCollectionFolders from the
+' Immediate window (Ctrl+G in the VBA editor).
+'
+' RunExportStaffCopy and RunCheckCollectionWorkbook do the work without any
+' prompts; the tests in tests\IRExCollectionTests.bas call them directly.
 Option Explicit
 
 Private Const COLLECTION_PREFIX As String = "IREX_Rehab_Data_Collection_CY"
+Private Const SETTINGS_APP As String = "IREx Collection Workbook"
+Private Const SETTINGS_SECTION As String = "Folders"
+Private Const SHARED_KEY As String = "Collection"
+Private Const ADMIN_KEY As String = "Admin"
+Private Const PICK_FOLDER As Long = 4           ' msoFileDialogFolderPicker
+Private Const PICK_FILE As Long = 3             ' msoFileDialogFilePicker
 Private Const XL_WORKBOOK As Long = 51          ' xlOpenXMLWorkbook (.xlsx)
 Private Const XL_SINGLE_SHEET As Long = -4167   ' xlWBATWorksheet
 Private Const HEADER_ROW As Long = 3            ' Collection Workbook header row
 Private Const MAX_HEADER_SCAN As Long = 30
 Private Const MAX_COLUMN_WIDTH As Double = 60
+Private Const DEFAULT_COLUMN_WIDTH As Double = 14
 Private Const EXPORT_ID_HEADER As String = "Export ID"
 Private Const ROOM_FOR_NEW_ROWS As Long = 500   ' blank rows under the export that get the dropdowns
 Private Const XL_VALIDATE_LIST As Long = 3
@@ -91,6 +107,139 @@ Private mIdSeen() As Boolean
 Private mCounts(1 To 6, 1 To 6) As Long     ' (tab, COUNT_*)
 
 ' ===========================================================================
+' The macros
+' ===========================================================================
+
+Public Sub ExportStaffCopy()
+    Const TITLE As String = "Export Staff Copy"
+    Dim answer As String, calendarYear As Long, sharedFolder As String, adminFolder As String, path As String
+    answer = InputBox("Export the Collection Workbook for which calendar year?", TITLE, Year(Date))
+    If answer = "" Then Exit Sub
+    If Not ReadYear(answer, calendarYear) Then
+        MsgBox "Type a year such as " & Year(Date) & ".", vbExclamation, TITLE
+        Exit Sub
+    End If
+    sharedFolder = RememberedFolder(SHARED_KEY, "Choose the SharePoint folder Rehab Staff can edit (the Collection Workbook goes here)")
+    If sharedFolder = "" Then Exit Sub
+    adminFolder = RememberedFolder(ADMIN_KEY, "Choose the folder only IREx Admin can open (the ID lookup and reports go here)")
+    If adminFolder = "" Then Exit Sub
+
+    path = sharedFolder & CollectionName(calendarYear) & ".xlsx"
+    If FileExists(path) Then
+        If MsgBox(CollectionName(calendarYear) & ".xlsx is already in " & sharedFolder & vbLf & vbLf & _
+                  "Replacing it loses every row Rehab Staff have typed since your last check. " & _
+                  "Run Check Collection Workbook first and copy over what you need." & vbLf & vbLf & _
+                  "Replace it?", vbYesNo + vbExclamation + vbDefaultButton2, TITLE) <> vbYes Then Exit Sub
+    End If
+
+    On Error GoTo failed
+    Application.ScreenUpdating = False
+    path = RunExportStaffCopy(calendarYear, ThisWorkbook, sharedFolder, adminFolder, True)
+    Application.ScreenUpdating = True
+    MsgBox "Exported " & mLookupCount & " records to" & vbLf & path & vbLf & vbLf & _
+           ReportCount("Unreadable date") & " rows with a date or Year that can't be read, and " & _
+           ReportCount("No No.") & " rows with no No., are listed in the export report in" & vbLf & adminFolder, vbInformation, TITLE
+    Exit Sub
+failed:
+    Application.ScreenUpdating = True
+    MsgBox "Export Staff Copy stopped: " & Err.Description, vbCritical, TITLE
+End Sub
+
+Public Sub CheckCollectionWorkbook()
+    Const TITLE As String = "Check Collection Workbook"
+    Dim cwPath As String, adminFolder As String, lookupPath As String, copyPath As String
+    cwPath = PickFile("Pick the Collection Workbook to check (a synced or downloaded copy)", _
+                      GetSetting(SETTINGS_APP, SETTINGS_SECTION, SHARED_KEY, ""), "Collection Workbook")
+    If cwPath = "" Then Exit Sub
+    adminFolder = RememberedFolder(ADMIN_KEY, "Choose the folder only IREx Admin can open (the ID lookup and reports go here)")
+    If adminFolder = "" Then Exit Sub
+    lookupPath = PickFile("Pick the ID lookup saved when this Collection Workbook was exported", _
+                          adminFolder & LookupNameFor(cwPath), "ID lookup")
+    If lookupPath = "" Then Exit Sub
+
+    On Error GoTo failed
+    Application.ScreenUpdating = False
+    copyPath = RunCheckCollectionWorkbook(cwPath, lookupPath, ThisWorkbook, adminFolder)
+    Application.ScreenUpdating = True
+    Workbooks.Open copyPath
+    MsgBox TotalCount(COUNT_NEW) & " new, " & TotalCount(COUNT_CHANGED) & " changed, " & _
+           TotalCount(COUNT_ALREADY) & " already recorded, " & TotalCount(COUNT_DELETED) & " deleted, " & _
+           TotalCount(COUNT_CANT_FIND) & " can't be found in the Main Database." & vbLf & vbLf & _
+           "The highlighted copy is open, and saved as" & vbLf & copyPath, vbInformation, TITLE
+    Exit Sub
+failed:
+    Application.ScreenUpdating = True
+    MsgBox "Check Collection Workbook stopped: " & Err.Description, vbCritical, TITLE
+End Sub
+
+' Forgets the two folders, so the next run asks for them again. Run it from
+' the Immediate window; the optional argument keeps it out of the Macros dialog.
+Public Sub ResetCollectionFolders(Optional ByVal quiet As Boolean = False)
+    On Error Resume Next
+    DeleteSetting SETTINGS_APP, SETTINGS_SECTION
+    On Error GoTo 0
+    If Not quiet Then MsgBox "The next run of Export Staff Copy or Check Collection Workbook will ask for the folders again.", vbInformation
+End Sub
+
+' A folder chosen once and remembered for this Windows user, with a trailing
+' path separator; "" if the picker is cancelled.
+Private Function RememberedFolder(ByVal key As String, ByVal prompt As String) As String
+    Dim folder As String
+    folder = GetSetting(SETTINGS_APP, SETTINGS_SECTION, key, "")
+    If folder <> "" Then
+        If Dir(folder, vbDirectory) <> "" Then
+            RememberedFolder = folder
+            Exit Function
+        End If
+    End If
+    With Application.FileDialog(PICK_FOLDER)
+        .Title = prompt
+        .AllowMultiSelect = False
+        If .Show <> -1 Then Exit Function
+        folder = .SelectedItems(1)
+    End With
+    If Right(folder, 1) <> Application.PathSeparator Then folder = folder & Application.PathSeparator
+    SaveSetting SETTINGS_APP, SETTINGS_SECTION, key, folder
+    RememberedFolder = folder
+End Function
+
+Private Function PickFile(ByVal prompt As String, ByVal initial As String, ByVal kind As String) As String
+    With Application.FileDialog(PICK_FILE)
+        .Title = prompt
+        .AllowMultiSelect = False
+        .Filters.Clear
+        .Filters.Add kind, "*.xlsx"
+        If initial <> "" Then .InitialFileName = initial
+        If .Show <> -1 Then Exit Function
+        PickFile = .SelectedItems(1)
+    End With
+End Function
+
+' The ID lookup's file name for a Collection Workbook, also when the copy was
+' downloaded under a changed name such as "..._CY2026 (1).xlsx".
+Private Function LookupNameFor(ByVal collectionPath As String) As String
+    Dim name As String, i As Long
+    name = BaseName(collectionPath)
+    i = InStr(1, name, COLLECTION_PREFIX, vbTextCompare)
+    If i > 0 Then name = Mid(name, i, Len(COLLECTION_PREFIX) + 4)
+    LookupNameFor = name & " " & ChrW(8211) & " ID lookup.xlsx"
+End Function
+
+Private Function ReportCount(ByVal entry As String) As Long
+    Dim i As Long
+    For i = 1 To mReportCount
+        If mReport(i)(0) = entry Then ReportCount = ReportCount + 1
+    Next i
+End Function
+
+Private Function TotalCount(ByVal what As Long) As Long
+    Dim t As Long
+    For t = 1 To 6
+        TotalCount = TotalCount + mCounts(t, what)
+    Next t
+End Function
+
+' ===========================================================================
 ' Export Staff Copy
 ' ===========================================================================
 
@@ -140,12 +289,14 @@ Private Sub ExportTab(ByVal mainDatabase As Object, ByRef spec As TabSpec, ByVal
     End If
     Set srcSheet = mainDatabase.Worksheets(spec.SheetName)
 
-    Dim cols() As Long, n As Long, c As Long, r As Long, outRow As Long, idCol As Long
+    Dim cols() As Long, n As Long, c As Long, r As Long, outRow As Long, idCol As Long, width As Double
     n = ExportColumns(spec, src, cols)
     idCol = n + 1
     For c = 1 To n
         ws.Cells(HEADER_ROW, c).Value = src.Headers(cols(c))
-        ws.Columns(c).ColumnWidth = Application.WorksheetFunction.Min(srcSheet.Columns(src.Cols(cols(c))).ColumnWidth, MAX_COLUMN_WIDTH)
+        width = srcSheet.Columns(src.Cols(cols(c))).ColumnWidth
+        If width <= 0 Then width = DEFAULT_COLUMN_WIDTH        ' a hidden column reads as width 0
+        ws.Columns(c).ColumnWidth = Application.WorksheetFunction.Min(width, MAX_COLUMN_WIDTH)
         ws.Columns(c).Hidden = srcSheet.Columns(src.Cols(cols(c))).Hidden
     Next c
     ws.Cells(HEADER_ROW, idCol).Value = EXPORT_ID_HEADER
@@ -653,8 +804,12 @@ End Function
 ' read a file Excel has open).
 Private Sub CopyFile(ByVal fromPath As String, ByVal toPath As String)
     Dim wb As Object
-    If FileExists(toPath) Then Kill toPath
     On Error Resume Next
+    If FileExists(toPath) Then Kill toPath
+    If Err.Number <> 0 Then
+        On Error GoTo 0
+        Err.Raise vbObjectError + 2, , "Close " & toPath & " and run the check again."
+    End If
     FileCopy fromPath, toPath
     If Err.Number = 0 Then Exit Sub
     Err.Clear
@@ -839,13 +994,19 @@ Private Function ReadBlock(ByVal ws As Object, ByVal headerRow As Long, ByVal fi
     ReadBlock = b
 End Function
 
-' The last row with a value in column c (0 if none). Walks up from the bottom
-' of the used range rather than using End(xlUp), which LibreOffice works out
-' from whichever window is active.
+' The last row with a value in column c (0 if none). Scans the column's used
+' cells as one array, from the bottom, rather than using End(xlUp), which
+' LibreOffice works out from whichever window is active.
 Private Function LastFilledRow(ByVal ws As Object, ByVal c As Long) As Long
-    Dim r As Long
-    For r = ws.UsedRange.Row + ws.UsedRange.Rows.Count - 1 To 1 Step -1
-        If Not IsEmpty(ws.Cells(r, c).Value) Then
+    Dim bottom As Long, v As Variant, r As Long
+    bottom = ws.UsedRange.Row + ws.UsedRange.Rows.Count - 1
+    If bottom = 1 Then
+        If Not IsEmpty(ws.Cells(1, c).Value) Then LastFilledRow = 1
+        Exit Function
+    End If
+    v = ws.Range(ws.Cells(1, c), ws.Cells(bottom, c)).Value
+    For r = bottom To 1 Step -1
+        If Not IsEmpty(v(r, 1)) Then
             LastFilledRow = r
             Exit Function
         End If

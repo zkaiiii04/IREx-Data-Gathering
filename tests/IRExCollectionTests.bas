@@ -89,7 +89,8 @@ Private Function TestNames() As Variant
         "Check_lists_extra_columns_and_stray_values_without_comparing_them", _
         "Check_ignores_blank_rows_and_rows_of_spaces", _
         "Check_summary_counts_each_kind_of_row_per_tab", _
-        "Check_of_a_fresh_export_marks_nothing")
+        "Check_of_a_fresh_export_marks_nothing", _
+        "Check_leaves_the_Main_Database_as_it_was")
 End Function
 
 Private Sub Setup(ByVal fixtures As String, ByVal outDir As String, ByVal inLibreOffice As Boolean)
@@ -141,6 +142,7 @@ Private Sub Dispatch(ByVal name As String)
         Case "Check_ignores_blank_rows_and_rows_of_spaces": Check_ignores_blank_rows_and_rows_of_spaces
         Case "Check_summary_counts_each_kind_of_row_per_tab": Check_summary_counts_each_kind_of_row_per_tab
         Case "Check_of_a_fresh_export_marks_nothing": Check_of_a_fresh_export_marks_nothing
+        Case "Check_leaves_the_Main_Database_as_it_was": Check_leaves_the_Main_Database_as_it_was
         Case Else: Fail "no such test"
     End Select
 End Sub
@@ -682,6 +684,13 @@ Private Sub Check_of_a_fresh_export_marks_nothing()
         AssertEqual "0|0|0|0|0|0", SummaryRow(wb, CStr(t)), CStr(t)
     Next t
     AssertEqual "0|0|0|0|1|0", SummaryRow(wb, "Education"), "Education"
+End Sub
+
+Private Sub Check_leaves_the_Main_Database_as_it_was()
+    Dim before As String
+    before = Fingerprint(OpenMainDatabase())
+    CheckFixture
+    AssertEqual before, Fingerprint(OpenMainDatabase()), "sheets, ranges and values"
 End Sub
 
 ' ---------------------------------------------------------------------------
