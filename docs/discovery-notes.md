@@ -143,50 +143,25 @@ The user questioned old round 3 Q6 (importing existing data). The data flow they
 3. **Publication questions.** These are as proposed in round 8. The Submissions workbook keeps the main database's current columns, in the same order. **TTSH Contributor isn't filled in automatically.** IREx Admin fills it in, and *Submitted by* shows who the Submitter was. For Publications, this replaces round 6 Q4. The values for Category of Article are still needed from the user.
 4. **Presentation questions** are as proposed: Title, Type (Poster/Oral), Status, Date of Presentation, Conference name, Organising body, Country (default Singapore) and Related Project. Full Name = Submitter. Event Start/End aren't asked.
 
-## Open questions (round 9)
+## Settled (round 9)
 
-1. **Producing the staff Excel file.** Recommended: an *Export Staff Copy* macro in the main database writes a fresh copy at the start of each cycle, so the staff file no longer drifts from the main database. It leaves out the team-only tabs, every project finance and admin column (keeping Project name, PI, category and status) and Talent Development amounts. This also covers the KIV need (round 7 Q2): staff can see what's already recorded.
-2. **Sharing the file and where new rows go.** Recommended: one .xlsx in a SharePoint folder that Rehab Staff can edit, opened in Excel for the web, with no macros in it. The link goes in each reminder. On each tab, the existing records are read-only, and staff type new items into a separate editable *New entries* table with a *Your name* column. This avoids rows typed below a table, and stops anyone editing an existing record.
-3. **One review queue.** Recommended: the Import macro first collects the staff file's New entries into the Submissions workbook, alongside the Form's rows, and records where each row came from (Form or Excel). IREx Admin then reviews everything in one place, as in round 6. The next Export Staff Copy runs only after collecting, so no new entries are lost.
-4. **Media Appearance questions.** Recommended, one outlet per item:
-   - Platform (Digital News / Social Media / Websites & Blogs / Newspaper / Radio / Press Release), required
-   - Date, required
-   - Title & Description, required
-   - Source (outlet name), required
-   - Link, optional
-   - Associated Project or programme, optional
+1. **Export Staff Copy macro.** At the start of each cycle, a macro in the main database writes a fresh staff Excel file. It leaves out the team-only tabs and the project finance and admin columns, except **Grant Amount** and **Amount Awarded to TTSH**, which stay. Projects show those two amounts plus name, PI, category and status. Staff use the file to check what's already recorded, which resolves round 7's KIV. (Talent Development amounts: round 10 Q1.)
+2. **Sharing the file.** It's one .xlsx in SharePoint, opened in the browser, with no macros. Existing records are locked, and new items go in a New entries table. The user asked how many sheets that means and whether it doubles them: round 10 Q2.
+3. **One review queue.** The user asked what "next to the Form's rows" meant: round 10 Q3 explains it again.
+4. **Media Appearance questions** are as proposed. The current Media tab does have a *Full name* column, so it stays a column. Who fills it: round 10 Q4.
+5. **Talent Development questions** are as proposed. The recipient's name isn't filled in automatically.
+6. **Education Activity questions** are as proposed. Trainers aren't filled in automatically.
+7. **New Project questions** are as proposed, including Grant Amount and Amount Awarded to TTSH.
 
-   Full name = Submitter, which IREx Admin can change to a programme name.
-5. **Talent Development questions.** Recommended:
-   - Category (Talent Development grant / Special Award), required
-   - Award Description, required
-   - Year, required
-   - For a grant only: LOA Start, LOA End and Grant Amount
-   - Project, optional
+## Open questions (round 10)
 
-   Name = Submitter. Family Group is left to IREx Admin.
-6. **Education Activity questions.** Recommended:
-   - Title, required
-   - Date, required
-   - Type (Workshop/Masterclass / Webinar / Presentation/Sharing), required
-   - Audience (Professional / Patients, Care Givers & Public), required
-   - Local/Overseas, required
-   - Organisers, optional
-   - Partner, optional
-   - Number of participants, optional
+1. **Talent Development amounts in the staff copy.** Project Grant Amount and Amount Awarded to TTSH now stay in. Recommended: leave out Talent Development grant amounts, because they're personal grants to a named person rather than project funding.
+2. **How many sheets.** Recommended: the same number of tabs as today's staff file, not twice as many. Each tab has its New entries table at the **top**: about 50 blank, unlocked rows, with dropdowns, showing only the columns staff fill in, in the main database's order. The existing records sit below, locked. Excel can't grow a table on a locked sheet, which is why the blank rows are made in advance; the export resets them every cycle. Also, merge today's two project tabs ("Research" and "Innovation", which both hold all 103 projects) into one Projects tab.
+3. **One review queue, explained.** The Submissions workbook has one table per activity type, e.g. one Publications table. Form Submissions arrive there automatically. When IREx Admin clicks Import, the macro first copies the staff file's New entries into those same tables, so a Publication typed into Excel and one sent through the Form sit in the same Publications table. A *Source* column says Form or Excel. IREx Admin then sets Decision on every row in one place. Recommended: yes.
+4. **No name column is filled automatically.** This follows the user's answers on TTSH Contributor, Talent Development and Education. Recommended: no person column is filled from the Submitter's login. That covers TTSH Contributor, Presentation Full Name, Media Full name, Talent Development Name and Education Trainers. IREx Admin fills them, using *Submitted by* and their own name format. Project PI stays a form question. This replaces round 6 Q4 and round 8's "Full Name = Submitter".
+5. **Rollout.** Recommended: start at the next quarterly reminder. That email carries the Form link, the first exported staff file, and a short one-page "how to report" guide. No separate parallel run, since the Excel route continues anyway. After the first cycle, IREx Admin checks for problems: missing entries, rows that wouldn't import, and confusing questions.
 
-   Trainers = Submitter, and IREx Admin adds others. Year is worked out from the Date.
-7. **New Project questions.** Recommended:
-   - Project Name, required
-   - Category (Research / Innovation / Lien Foundation), required
-   - PI, required (asked, because the Submitter may be a Co-I)
-   - Co-I/Collaborators, optional
-   - Grant Partner, required
-   - Grant Type (Intramural / Extramural / Intramural – Talent Development), required
-   - Status (Applied / Awarded), required
-   - Grant Ref No, LOA Start/End, Grant Amount and Amount Awarded to TTSH, if known
-
-   Every other finance and admin column is left to IREx Admin.
+Still needed from the user: the **Category of Article** values, and whether Power Apps is available (make.powerapps.com).
 
 ## Platform facts checked
 
@@ -196,17 +171,16 @@ These were looked up during the interview, so they don't need to be put to the u
 - **Power Automate Excel Online (Business) connector**: Microsoft's documentation contradicts itself on .xlsm. Older connector docs list only .xlsx and .xlsb. The Office Scripts docs say .xlsm works, chiefly through *Run script*. VBA macros never run from Power Automate. ([connector](https://learn.microsoft.com/connectors/excelonlinebusiness), [Office Scripts](https://learn.microsoft.com/office/dev/scripts/develop/macros-power-automate))
 - **Power Apps**: canvas apps that use only standard connectors (SharePoint, Excel Online, Outlook) are covered by Microsoft 365 E1/E3/E5 licences, unless IT has disabled them. Premium connectors (SQL, Dataverse) need a paid licence for every user. A flow that a Power App calls can use its owner's connection rather than the user's, so users don't need access to the target file. These come from community sources ([Microsoft Community](https://techcommunity.microsoft.com/discussions/microsoft-365/power-platform-licenses-and-features-in-office-365-e3-subscription/2553776), [run-only users](https://community.powerapps.com/t5/General-Power-Automate/All-about-quot-Manage-Run-Only-Users-quot/m-p/123305)), so test them in TTSH's tenant. Whether TTSH allows Power Apps is unknown.
 - **Excel macros**: Office blocks VBA by default in files that come from the internet or email (Mark of the Web), and VBA doesn't run in Excel for the web. A macro file sent to staff would need them to unblock it and open it in desktop Excel.
+- **Excel tables on protected sheets** can't be resized or have rows inserted, so a New entries table on a locked sheet needs its blank rows made in advance. Excel for the web supports protected sheets and data validation dropdowns.
 - **Microsoft Lists forms**: Microsoft has no official list of the column types they support. A third-party checklist says Person and Choice work ([handsontek](https://lists.handsontek.net/column-type-checklist-microsoft-lists-forms/)). Not needed while SharePoint Lists are out of the design.
 
 ## Not yet asked
 
-These come after round 9:
+These come after round 10:
 
-- Rollout: how staff are introduced to the new process, and running it alongside the old workbook for one cycle.
 - Category of Article values for the Publication question (needed from the user).
-- Revisit round 7 Q2 (letting staff check their existing records), which is KIV. Round 9 Q1 may cover it.
 - Power Apps: the user hasn't checked make.powerapps.com yet.
 
 ## Next session
 
-Resume by putting round 9 to the user again; [handoff.md](handoff.md) says how.
+Resume by putting round 10 to the user again; [handoff.md](handoff.md) says how.
