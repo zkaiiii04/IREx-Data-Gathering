@@ -83,11 +83,26 @@ def close_others(desktop, keep):
     while comps.hasMoreElements():
         docs.append(comps.nextElement())
     for d in docs:
-        if d != keep:
+        if d == keep:
+            continue
+        try:
+            d.setModified(False)
+        except Exception:
+            pass
+        try:
+            d.close(True)
+        except Exception:
             try:
-                d.close(True)
+                d.dispose()
             except Exception:
                 pass
+    left = 0
+    comps = desktop.Components.createEnumeration()
+    while comps.hasMoreElements():
+        if comps.nextElement() != keep:
+            left += 1
+    if left:
+        print(f"warning: {left} document(s) would not close", file=sys.stderr)
 
 
 def free_port():

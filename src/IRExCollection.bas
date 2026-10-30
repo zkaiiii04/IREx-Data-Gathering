@@ -12,7 +12,6 @@ Option Explicit
 Private Const COLLECTION_PREFIX As String = "IREX_Rehab_Data_Collection_CY"
 Private Const XL_WORKBOOK As Long = 51          ' xlOpenXMLWorkbook (.xlsx)
 Private Const XL_SINGLE_SHEET As Long = -4167   ' xlWBATWorksheet
-Private Const XL_UP As Long = -4162
 Private Const HEADER_ROW As Long = 3            ' Collection Workbook header row
 Private Const MAX_HEADER_SCAN As Long = 30
 Private Const MAX_COLUMN_WIDTH As Double = 60
@@ -525,7 +524,7 @@ End Function
 ' first field is empty. Returns 0 if no key finds exactly one.
 Private Function FindRecord(ByRef md As SheetRows, ByRef spec As TabSpec, ByVal v0 As Variant, ByVal v1 As Variant, ByVal v2 As Variant) As Long
     Dim key As Variant, fields As Variant, values(0 To 2) As Variant, headers(0 To 2) As String
-    Dim cols() As Long, f As Long, r As Long, hits As Long, hit As Long, ok As Boolean, usable As Boolean
+    Dim cols() As Long, f As Long, r As Long, hits As Long, hit As Long, usable As Boolean
     values(0) = v0: values(1) = v1: values(2) = v2
     headers(0) = spec.NoHeader: headers(1) = spec.Key1Header: headers(2) = spec.Key2Header
     For Each key In Split(spec.Keys, ";")
@@ -540,14 +539,7 @@ Private Function FindRecord(ByRef md As SheetRows, ByRef spec As TabSpec, ByVal 
         If usable Then
             hits = 0
             For r = 1 To md.RowCount
-                ok = True
-                For f = 0 To UBound(fields)
-                    If Not SameValue(md.Values(r, cols(f)), values(CLng(fields(f)))) Then
-                        ok = False
-                        Exit For
-                    End If
-                Next f
-                If ok Then
+                If KeyMatches(md, r, cols, fields, values) Then
                     hits = hits + 1
                     hit = r
                 End If
@@ -558,6 +550,14 @@ Private Function FindRecord(ByRef md As SheetRows, ByRef spec As TabSpec, ByVal 
             End If
         End If
     Next key
+End Function
+
+Private Function KeyMatches(ByRef md As SheetRows, ByVal r As Long, ByRef cols() As Long, ByVal fields As Variant, ByRef values() As Variant) As Boolean
+    Dim f As Long
+    For f = 0 To UBound(fields)
+        If Not SameValue(md.Values(r, cols(f)), values(CLng(fields(f)))) Then Exit Function
+    Next f
+    KeyMatches = True
 End Function
 
 Private Sub ListDeleted()
@@ -606,7 +606,7 @@ Private Sub ReadLookup(ByVal lookupPath As String)
     Dim wb As Object, ws As Object, last As Long, r As Long, c As Long
     Set wb = Workbooks.Open(lookupPath, ReadOnly:=True)
     Set ws = wb.Worksheets(1)
-    last = ws.Cells(ws.Rows.Count, 1).End(XL_UP).Row
+    last = LastFilledRow(ws, 1)
     mIdCount = Application.WorksheetFunction.Max(last - 1, 0)
     Dim ids() As Variant, seen() As Boolean
     ReDim ids(1 To Application.WorksheetFunction.Max(mIdCount, 1), 0 To 5)
@@ -788,7 +788,7 @@ Private Function ReadBlock(ByVal ws As Object, ByVal headerRow As Long, ByVal fi
         cols(i) = c
         headers(i) = CellText(ws.Cells(headerRow, c).Value)
         keys(i) = Norm(headers(i))
-        r = ws.Cells(ws.Rows.Count, c).End(XL_UP).Row
+        r = LastFilledRow(ws, c)
         If r > lastRow Then lastRow = r
     Next i
     b.Found = True
@@ -833,6 +833,19 @@ Private Function ReadBlock(ByVal ws As Object, ByVal headerRow As Long, ByVal fi
         b.Values = values
     End If
     ReadBlock = b
+End Function
+
+' The last row with a value in column c (0 if none). Walks up from the bottom
+' of the used range rather than using End(xlUp), which LibreOffice works out
+' from whichever window is active.
+Private Function LastFilledRow(ByVal ws As Object, ByVal c As Long) As Long
+    Dim r As Long
+    For r = ws.UsedRange.Row + ws.UsedRange.Rows.Count - 1 To 1 Step -1
+        If Not IsEmpty(ws.Cells(r, c).Value) Then
+            LastFilledRow = r
+            Exit Function
+        End If
+    Next r
 End Function
 
 Private Function LastUsedColumn(ByVal ws As Object) As Long

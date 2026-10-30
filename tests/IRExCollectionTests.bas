@@ -77,7 +77,12 @@ Private Function TestNames() As Variant
         "Export_replaces_an_existing_Collection_Workbook_only_when_told_to", _
         "Export_leaves_the_Main_Database_as_it_was", _
         "Check_saves_a_highlighted_copy_and_leaves_the_shared_file_alone", _
-        "Check_marks_rows_with_no_Export_ID_and_no_match_as_New_in_green")
+        "Check_marks_rows_with_no_Export_ID_and_no_match_as_New_in_green", _
+        "Check_marks_a_changed_row_yellow_with_each_changed_cell_bold_and_its_old_value_in_a_comment", _
+        "Check_ignores_differences_of_spacing_case_line_breaks_and_date_or_number_format", _
+        "Check_flags_a_one_letter_spelling_fix", _
+        "Check_matches_rows_by_Export_ID_whatever_order_the_sheet_is_in", _
+        "Check_finds_a_record_by_No_after_its_title_was_changed_in_the_Main_Database")
 End Function
 
 Private Sub Setup(ByVal fixtures As String, ByVal outDir As String, ByVal inLibreOffice As Boolean)
@@ -117,6 +122,11 @@ Private Sub Dispatch(ByVal name As String)
         Case "Export_leaves_the_Main_Database_as_it_was": Export_leaves_the_Main_Database_as_it_was
         Case "Check_saves_a_highlighted_copy_and_leaves_the_shared_file_alone": Check_saves_a_highlighted_copy_and_leaves_the_shared_file_alone
         Case "Check_marks_rows_with_no_Export_ID_and_no_match_as_New_in_green": Check_marks_rows_with_no_Export_ID_and_no_match_as_New_in_green
+        Case "Check_marks_a_changed_row_yellow_with_each_changed_cell_bold_and_its_old_value_in_a_comment": Check_marks_a_changed_row_yellow_with_each_changed_cell_bold_and_its_old_value_in_a_comment
+        Case "Check_ignores_differences_of_spacing_case_line_breaks_and_date_or_number_format": Check_ignores_differences_of_spacing_case_line_breaks_and_date_or_number_format
+        Case "Check_flags_a_one_letter_spelling_fix": Check_flags_a_one_letter_spelling_fix
+        Case "Check_matches_rows_by_Export_ID_whatever_order_the_sheet_is_in": Check_matches_rows_by_Export_ID_whatever_order_the_sheet_is_in
+        Case "Check_finds_a_record_by_No_after_its_title_was_changed_in_the_Main_Database": Check_finds_a_record_by_No_after_its_title_was_changed_in_the_Main_Database
         Case Else: Fail "no such test"
     End Select
 End Sub
@@ -367,7 +377,7 @@ Private Sub Export_puts_the_rows_in_an_Excel_table()
     For Each ws In cw.Worksheets
         AssertEqual 1, ws.ListObjects.Count, ws.Name & ": one table"
         AssertEqual HeaderCell(ws, "Export ID").Row, ws.ListObjects(1).HeaderRowRange.Row, ws.Name & ": table header row"
-        AssertEqual ws.Cells(ws.Rows.Count, HeaderCell(ws, "Export ID").Column).End(-4162).Row, _
+        AssertEqual LastFilledRow(ws, HeaderCell(ws, "Export ID").Column), _
             ws.ListObjects(1).Range.Row + ws.ListObjects(1).Range.Rows.Count - 1, ws.Name & ": table's last row"
     Next ws
 End Sub
@@ -384,7 +394,7 @@ Private Sub Export_writes_an_ID_lookup_with_each_rows_tab_No_title_and_match_key
     Set ws = lk.Worksheets(1)
     AssertEqual "export id|tab|no.|title|key 1|key 2", Squash(Join(Array(ws.Range("A1").Value, ws.Range("B1").Value, _
         ws.Range("C1").Value, ws.Range("D1").Value, ws.Range("E1").Value, ws.Range("F1").Value), "|")), "headers"
-    AssertEqual 27, ws.Cells(ws.Rows.Count, 1).End(-4162).Row - 1, "one row per exported record"
+    AssertEqual 27, LastFilledRow(ws, 1) - 1, "one row per exported record"
     AssertEqual "Publications|1|Robotic gait training after stroke: a pilot study|10.1000/test.0001|Robotic gait training after stroke: a pilot study", _
         LookupRow(ws, "PUB-0001"), "PUB-0001"
     AssertEqual "Publications|3|Spasticity outcomes after botulinum toxin||Spasticity outcomes after botulinum toxin", LookupRow(ws, "PUB-0002"), "PUB-0002"
@@ -496,6 +506,77 @@ Private Sub Check_marks_rows_with_no_Export_ID_and_no_match_as_New_in_green()
     AssertEqual GREEN, FillOf(ws, r, "Year"), "new Education Activity"
 End Sub
 
+' PUB-0005 (No. 6) went from Under Review to Published.
+Private Sub Check_marks_a_changed_row_yellow_with_each_changed_cell_bold_and_its_old_value_in_a_comment()
+    Dim wb As Object, ws As Object, r As Long
+    Set wb = OpenWorkbook(CheckFixture())
+    Set ws = wb.Worksheets("Publications")
+    r = RowOf(ws, "Export ID", "PUB-0005")
+    AssertEqual YELLOW, FillOf(ws, r, "Title of Article"), "row yellow"
+    AssertEqual True, IsBold(ws, r, "Status"), "changed cell bold"
+    AssertEqual "Main Database: Under Review", CommentOf(ws, r, "Status"), "comment with the Main Database value"
+    AssertEqual False, IsBold(ws, r, "Title of Article"), "unchanged cell not bold"
+    AssertEqual "", CommentOf(ws, r, "Title of Article"), "no comment on an unchanged cell"
+    AssertEqual "Changed: No. 6, Dysphagia screening in acute stroke", NoteOf(ws, r), "note names the record"
+    Set ws = wb.Worksheets("Projects")
+    r = RowOf(ws, "Export ID", "PRJ-0001")
+    AssertEqual YELLOW, FillOf(ws, r, "Status"), "Project status change"
+    AssertEqual "Main Database: In Progress", CommentOf(ws, r, "Status"), "Project comment"
+    AssertEqual "Changed: Robot-assisted gait study", NoteOf(ws, r), "Project note has no No."
+    Set ws = wb.Worksheets("Talent Development")
+    r = RowOf(ws, "Export ID", "TD-0003")
+    AssertEqual "Main Database: (empty)", CommentOf(ws, r, "Year"), "a value added where the Main Database is empty"
+End Sub
+
+' PUB-0002's title differs only in case and spaces, its contributor by a line
+' break, and its date is a real date where the Main Database has "20 Aug 25".
+' PUB-0003 and PRES-0002 are empty where the Main Database has "(blank)".
+' TD-0001's Grant Amount is "50,000" where the Main Database has 50000.
+Private Sub Check_ignores_differences_of_spacing_case_line_breaks_and_date_or_number_format()
+    Dim wb As Object
+    Set wb = OpenWorkbook(CheckFixture())
+    AssertUnmarked wb.Worksheets("Publications"), "PUB-0001"
+    AssertUnmarked wb.Worksheets("Publications"), "PUB-0002"
+    AssertUnmarked wb.Worksheets("Publications"), "PUB-0003"
+    AssertUnmarked wb.Worksheets("Poster & Oral Presentation"), "PRES-0002"
+    AssertUnmarked wb.Worksheets("Talent Development"), "TD-0001"
+    AssertUnmarked wb.Worksheets("Media"), "MED-0004"
+    AssertUnmarked wb.Worksheets("Education"), "EDU-0002"
+    AssertUnmarked wb.Worksheets("Projects"), "PRJ-0004"
+End Sub
+
+' MED-0003's link differs by more than formatting.
+Private Sub Check_flags_a_one_letter_spelling_fix()
+    Dim wb As Object, ws As Object, r As Long
+    Set wb = OpenWorkbook(CheckFixture())
+    Set ws = wb.Worksheets("Media")
+    r = RowOf(ws, "Export ID", "MED-0003")
+    AssertEqual True, IsBold(ws, r, "Website link to media/ Source (If applicable)"), "changed link bold"
+    AssertEqual "Main Database: https://example.com/radio", CommentOf(ws, r, "Website link to media/ Source (If applicable)"), "comment"
+End Sub
+
+' The fixture's Publications are in a different order from the export (and
+' the other two outlets of the same story are untouched).
+Private Sub Check_matches_rows_by_Export_ID_whatever_order_the_sheet_is_in()
+    Dim wb As Object
+    Set wb = OpenWorkbook(CheckFixture())
+    AssertUnmarked wb.Worksheets("Publications"), "PUB-0001"
+    AssertUnmarked wb.Worksheets("Media"), "MED-0001"
+    AssertUnmarked wb.Worksheets("Media"), "MED-0002"
+End Sub
+
+' PRES-0003 was exported as "Virtual reality balance training"; IREx Admin has
+' since renamed No. 4 in the Main Database.
+Private Sub Check_finds_a_record_by_No_after_its_title_was_changed_in_the_Main_Database()
+    Dim wb As Object, ws As Object, r As Long
+    Set wb = OpenWorkbook(CheckFixture())
+    Set ws = wb.Worksheets("Poster & Oral Presentation")
+    r = RowOf(ws, "Export ID", "PRES-0003")
+    AssertEqual YELLOW, FillOf(ws, r, "Title of Presentation/Topic"), "row yellow"
+    AssertEqual "Main Database: Virtual reality balance training for older adults", CommentOf(ws, r, "Title of Presentation/Topic"), "comment"
+    AssertEqual "Changed: No. 4, Virtual reality balance training for older adults", NoteOf(ws, r), "note"
+End Sub
+
 ' ---------------------------------------------------------------------------
 ' Helpers: running the macros
 ' ---------------------------------------------------------------------------
@@ -602,7 +683,7 @@ Private Function ColumnText(ByVal ws As Object, ByVal header As String) As Strin
         ColumnText = "(no column " & header & ")"
         Exit Function
     End If
-    lastRow = ws.Cells(ws.Rows.Count, h.Column).End(-4162).Row
+    lastRow = LastFilledRow(ws, h.Column)
     For r = h.Row + 1 To lastRow
         s = s & "|" & Show(ws.Cells(r, h.Column).Value)
     Next r
@@ -648,7 +729,7 @@ End Function
 
 Private Function LookupRow(ByVal ws As Object, ByVal exportId As String) As String
     Dim r As Long, c As Long, s As String
-    For r = 2 To ws.Cells(ws.Rows.Count, 1).End(-4162).Row
+    For r = 2 To LastFilledRow(ws, 1)
         If ws.Cells(r, 1).Value = exportId Then
             For c = 2 To 6
                 s = s & "|" & Show(ws.Cells(r, c).Value)
@@ -753,6 +834,17 @@ Private Function CellUnder(ByVal ws As Object, ByVal header As String, ByVal n A
     End If
 End Function
 
+' The last row with a value in column c. (End(xlUp) isn't reliable in LibreOffice.)
+Private Function LastFilledRow(ByVal ws As Object, ByVal c As Long) As Long
+    Dim r As Long
+    For r = ws.UsedRange.Row + ws.UsedRange.Rows.Count - 1 To 1 Step -1
+        If Not IsEmpty(ws.Cells(r, c).Value) Then
+            LastFilledRow = r
+            Exit Function
+        End If
+    Next r
+End Function
+
 Private Sub CloseTestWorkbooks()
     Dim wb As Object, toClose As New Collection, i As Long
     On Error Resume Next
@@ -819,6 +911,23 @@ Private Sub AssertContains(ByVal text As String, ByVal line As String, ByVal wha
     If InStr(text, vbLf & line & "|") = 0 And InStr(text, vbLf & line & vbLf) = 0 Then
         Fail what & ": no line [" & line & "] in" & Replace(text, vbLf, vbLf & "        ")
     End If
+End Sub
+
+' The row with this Export ID has no fill, bold, comment or note.
+Private Sub AssertUnmarked(ByVal ws As Object, ByVal exportId As String)
+    Dim r As Long, c As Long, h As Object
+    r = RowOf(ws, "Export ID", exportId)
+    If r = 0 Then
+        Fail exportId & ": no such row"
+        Exit Sub
+    End If
+    Set h = HeaderCell(ws, "Export ID")
+    For c = 1 To h.Column - 1
+        If ws.Cells(r, c).Interior.Color = GREEN Or ws.Cells(r, c).Interior.Color = YELLOW Then Fail exportId & ": " & ws.Cells(h.Row, c).Value & " is filled"
+        If ws.Cells(r, c).Font.Bold Then Fail exportId & ": " & ws.Cells(h.Row, c).Value & " is bold"
+        If Not ws.Cells(r, c).Comment Is Nothing Then Fail exportId & ": " & ws.Cells(h.Row, c).Value & " has a comment: " & ws.Cells(r, c).Comment.Text
+    Next c
+    If NoteOf(ws, r) <> "" Then Fail exportId & ": note " & NoteOf(ws, r)
 End Sub
 
 Private Sub AssertTrue(ByVal condition As Boolean, ByVal what As String)
