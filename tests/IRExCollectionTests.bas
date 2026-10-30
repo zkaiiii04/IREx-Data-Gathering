@@ -52,7 +52,12 @@ End Function
 
 Private Function TestNames() As Variant
     TestNames = Array( _
-        "Export_writes_the_six_activity_tabs_to_a_workbook_named_for_the_year")
+        "Export_writes_the_six_activity_tabs_to_a_workbook_named_for_the_year", _
+        "Export_takes_Publications_whose_date_falls_in_the_year", _
+        "Export_takes_Presentations_and_Media_Appearances_whose_date_falls_in_the_year", _
+        "Export_takes_Talent_Developments_whose_Year_is_the_year", _
+        "Export_takes_Education_Activities_by_Year_or_by_date_when_Year_is_empty", _
+        "Export_takes_Projects_live_during_the_year_and_Applied_ones_with_no_LOA")
 End Function
 
 Private Sub Setup(ByVal fixtures As String, ByVal outDir As String, ByVal inLibreOffice As Boolean)
@@ -69,6 +74,11 @@ End Sub
 Private Sub Dispatch(ByVal name As String)
     Select Case name
         Case "Export_writes_the_six_activity_tabs_to_a_workbook_named_for_the_year": Export_writes_the_six_activity_tabs_to_a_workbook_named_for_the_year
+        Case "Export_takes_Publications_whose_date_falls_in_the_year": Export_takes_Publications_whose_date_falls_in_the_year
+        Case "Export_takes_Presentations_and_Media_Appearances_whose_date_falls_in_the_year": Export_takes_Presentations_and_Media_Appearances_whose_date_falls_in_the_year
+        Case "Export_takes_Talent_Developments_whose_Year_is_the_year": Export_takes_Talent_Developments_whose_Year_is_the_year
+        Case "Export_takes_Education_Activities_by_Year_or_by_date_when_Year_is_empty": Export_takes_Education_Activities_by_Year_or_by_date_when_Year_is_empty
+        Case "Export_takes_Projects_live_during_the_year_and_Applied_ones_with_no_LOA": Export_takes_Projects_live_during_the_year_and_Applied_ones_with_no_LOA
         Case Else: Fail "no such test"
     End Select
 End Sub
@@ -141,6 +151,54 @@ Private Sub Export_writes_the_six_activity_tabs_to_a_workbook_named_for_the_year
     End If
 End Sub
 
+' Dates that can be read (a text date, a date number stored as text) count by
+' their year; "(blank)" can't be read, so that row is kept.
+Private Sub Export_takes_Publications_whose_date_falls_in_the_year()
+    Dim cw As Object
+    Set cw = OpenWorkbook(ExportFixture(2025))
+    AssertEqual "Robotic gait training after stroke: a pilot study|Spasticity outcomes after botulinum toxin|" & _
+        "Caregiver burden in spinal cord injury|Upper limb telerehabilitation|Dysphagia screening in acute stroke", _
+        ColumnText(cw.Worksheets("Publications"), "Title of Article"), "titles"
+End Sub
+
+Private Sub Export_takes_Presentations_and_Media_Appearances_whose_date_falls_in_the_year()
+    Dim cw As Object
+    Set cw = OpenWorkbook(ExportFixture(2025))
+    AssertEqual "Early mobilisation in intensive care|Wheelchair skills training|Virtual reality balance training for older adults", _
+        ColumnText(cw.Worksheets("Poster & Oral Presentation"), "Title of Presentation/Topic"), "Presentations"
+    ' One story carried by three outlets is three Media Appearances; "Nov 26(KIV)" can't be read, so it's kept.
+    AssertEqual "The Test Times|The Test Times Print|Test Radio 99|Test Blog", _
+        ColumnText(cw.Worksheets("Media"), "Name of Media Published Source (For eg The Straits Times or online eg ChannelnewsAsia.com)"), "Media outlets"
+End Sub
+
+' A Talent Development with no Year can't be placed, so it's kept.
+Private Sub Export_takes_Talent_Developments_whose_Year_is_the_year()
+    Dim cw As Object
+    Set cw = OpenWorkbook(ExportFixture(2025))
+    AssertEqual "Test Fellowship Award|Test Teaching Award|Test Nursing Award", _
+        ColumnText(cw.Worksheets("Talent Development"), "Award Description"), "awards"
+End Sub
+
+' Rows typed below tbl_Education, after a gap, are read too: the bold label
+' row there has no Year and no readable date, so it's kept like any unreadable row.
+Private Sub Export_takes_Education_Activities_by_Year_or_by_date_when_Year_is_empty()
+    Dim cw As Object
+    Set cw = OpenWorkbook(ExportFixture(2025))
+    AssertEqual "Spasticity management workshop|Pressure injury prevention webinar|Caregiver training sharing|" & _
+        "Hand therapy splinting course||Community rehab workshop", _
+        ColumnText(cw.Worksheets("Education"), "Title of Course/Educational Materials/Educational Events/Outreach"), "titles"
+    AssertEqual "PARTNER PROGRAMME", CellUnder(cw.Worksheets("Education"), "Date/Year/Period", 5), "label row below the table"
+End Sub
+
+' Live: LOA Start on or before 31 Dec and LOA End on or after 1 Jan, or no LOA End.
+Private Sub Export_takes_Projects_live_during_the_year_and_Applied_ones_with_no_LOA()
+    Dim cw As Object
+    Set cw = OpenWorkbook(ExportFixture(2025))
+    AssertEqual "Robot-assisted gait study|Home exercise app|Community stroke registry|Exoskeleton feasibility|" & _
+        "Regional falls network|Pressure mapping pilot", _
+        ColumnText(cw.Worksheets("Projects"), "Project Name"), "projects"
+End Sub
+
 ' ---------------------------------------------------------------------------
 ' Helpers: running the macros
 ' ---------------------------------------------------------------------------
@@ -188,6 +246,58 @@ Private Function SheetNames(ByVal wb As Object) As String
         s = s & "|" & ws.Name
     Next ws
     SheetNames = Mid(s, 2)
+End Function
+
+' The header cell matching header (ignoring case, spaces and line breaks) in the
+' first 10 rows, or Nothing.
+Private Function HeaderCell(ByVal ws As Object, ByVal header As String) As Object
+    Dim r As Long, c As Long, lastCol As Long
+    lastCol = ws.UsedRange.Column + ws.UsedRange.Columns.Count - 1
+    For r = 1 To 10
+        For c = 1 To lastCol
+            If Squash(ws.Cells(r, c).Value) = Squash(header) Then
+                Set HeaderCell = ws.Cells(r, c)
+                Exit Function
+            End If
+        Next c
+    Next r
+End Function
+
+Private Function Squash(ByVal v As Variant) As String
+    Dim s As String
+    If IsError(v) Then Exit Function
+    s = Replace(Replace(Replace(CStr(v), vbCr, " "), vbLf, " "), vbTab, " ")
+    Do While InStr(s, "  ") > 0
+        s = Replace(s, "  ", " ")
+    Loop
+    Squash = LCase(Trim(s))
+End Function
+
+' The values under a column's header, "|"-separated, one per row down to the
+' column's last filled cell.
+Private Function ColumnText(ByVal ws As Object, ByVal header As String) As String
+    Dim h As Object, r As Long, lastRow As Long, s As String
+    Set h = HeaderCell(ws, header)
+    If h Is Nothing Then
+        ColumnText = "(no column " & header & ")"
+        Exit Function
+    End If
+    lastRow = ws.Cells(ws.Rows.Count, h.Column).End(-4162).Row
+    For r = h.Row + 1 To lastRow
+        s = s & "|" & Show(ws.Cells(r, h.Column).Value)
+    Next r
+    ColumnText = Mid(s, 2)
+End Function
+
+' The value n rows under a column's header.
+Private Function CellUnder(ByVal ws As Object, ByVal header As String, ByVal n As Long) As Variant
+    Dim h As Object
+    Set h = HeaderCell(ws, header)
+    If h Is Nothing Then
+        CellUnder = "(no column " & header & ")"
+    Else
+        CellUnder = ws.Cells(h.Row + n, h.Column).Value
+    End If
 End Function
 
 Private Sub CloseTestWorkbooks()

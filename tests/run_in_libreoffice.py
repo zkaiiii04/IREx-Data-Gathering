@@ -106,7 +106,14 @@ def main():
 
         fixtures = os.path.join(ROOT, "tests", "fixtures") + os.sep
         lines, passed, failed = [], 0, 0
-        for test in call("TestNamesHeadless").split("|"):
+        try:
+            names = call("TestNamesHeadless")
+        except Exception as e:
+            sys.exit(f"The VBA modules don't load: {e}")
+        if not names:
+            sys.exit("The VBA modules don't compile (LibreOffice gives no details: "
+                     "check the last edit, or open the modules in LibreOffice's Basic IDE)")
+        for test in names.split("|"):
             if name_filter and name_filter.lower() not in test.lower():
                 continue
             # One test per call, closing every other document afterwards:
