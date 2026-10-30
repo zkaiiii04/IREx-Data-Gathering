@@ -34,6 +34,7 @@ Private Const DEFAULT_COLUMN_WIDTH As Double = 14
 Private Const EXPORT_ID_HEADER As String = "Export ID"
 Private Const ROOM_FOR_NEW_ROWS As Long = 500   ' blank rows under the export that get the dropdowns
 Private Const XL_VALIDATE_LIST As Long = 3
+Private Const MACRO_ERROR As Long = &H80040000   ' vbObjectError, which LibreOffice lacks
 Private Const CHECK_NOTE_HEADER As String = "Check note"
 Private Const GREEN As Long = 13561798         ' RGB(198, 239, 206): new
 Private Const YELLOW As Long = 10284031        ' RGB(255, 235, 156): changed
@@ -248,9 +249,14 @@ End Function
 ' If the Collection Workbook already exists, it's replaced only when
 ' replaceExisting is True; otherwise nothing is written and "" is returned.
 Public Function RunExportStaffCopy(ByVal calendarYear As Long, ByVal mainDatabase As Object, ByVal collectionFolder As String, ByVal adminFolder As String, Optional ByVal replaceExisting As Boolean = False) As String
-    Dim path As String
+    Dim path As String, lookupPath As String, reportPath As String
     path = collectionFolder & CollectionName(calendarYear) & ".xlsx"
     If FileExists(path) And Not replaceExisting Then Exit Function
+    lookupPath = adminFolder & CollectionName(calendarYear) & " " & ChrW(8211) & " ID lookup.xlsx"
+    reportPath = adminFolder & CollectionName(calendarYear) & " " & ChrW(8211) & " export report " & Format(Now, "yyyy-mm-dd") & ".xlsx"
+    EnsureNameFree path
+    EnsureNameFree lookupPath
+    EnsureNameFree reportPath
 
     LoadTabs
     mLookupCount = 0
@@ -268,8 +274,8 @@ Public Function RunExportStaffCopy(ByVal calendarYear As Long, ByVal mainDatabas
     Next i
     cw.Worksheets(1).Activate
     SaveNew cw, path
-    WriteLookup adminFolder & CollectionName(calendarYear) & " " & ChrW(8211) & " ID lookup.xlsx"
-    WriteExportReport adminFolder & CollectionName(calendarYear) & " " & ChrW(8211) & " export report " & Format(Now, "yyyy-mm-dd") & ".xlsx", calendarYear
+    WriteLookup lookupPath
+    WriteExportReport reportPath, calendarYear
     RunExportStaffCopy = path
 End Function
 
@@ -515,6 +521,7 @@ Public Function RunCheckCollectionWorkbook(ByVal collectionPath As String, ByVal
     Next i
 
     copyPath = adminFolder & BaseName(collectionPath) & " " & ChrW(8211) & " checked " & Format(Date, "yyyy-mm-dd") & ".xlsx"
+    EnsureNameFree copyPath
     CopyFile collectionPath, copyPath
     Set cw = Workbooks.Open(copyPath)
     For i = 1 To 6
@@ -826,7 +833,7 @@ Private Sub CopyFile(ByVal fromPath As String, ByVal toPath As String)
     If FileExists(toPath) Then Kill toPath
     If Err.Number <> 0 Then
         On Error GoTo 0
-        Err.Raise vbObjectError + 2, , "Close " & toPath & " and run the check again."
+        Err.Raise MACRO_ERROR + 2, , "Close " & toPath & " and run the check again."
     End If
     FileCopy fromPath, toPath
     If Err.Number = 0 Then Exit Sub
@@ -838,7 +845,7 @@ Private Sub CopyFile(ByVal fromPath As String, ByVal toPath As String)
         End If
     Next wb
     On Error GoTo 0
-    Err.Raise vbObjectError + 1, , "Can't copy " & fromPath & ". Close it, or pick a downloaded copy, and run the check again."
+    Err.Raise MACRO_ERROR + 1, , "Can't copy " & fromPath & ". Close it, or pick a downloaded copy, and run the check again."
 End Sub
 
 ' ===========================================================================
@@ -1341,15 +1348,33 @@ Private Function Tidy(ByVal s As String) As String
     Tidy = Trim(s)
 End Function
 
-' The file name without its folder or extension.
-Private Function BaseName(ByVal path As String) As String
+' The file name without its folder.
+Private Function FileName(ByVal path As String) As String
     Dim i As Long
     For i = Len(path) To 1 Step -1
         If Mid(path, i, 1) = "\" Or Mid(path, i, 1) = "/" Then Exit For
     Next i
-    BaseName = Mid(path, i + 1)
+    FileName = Mid(path, i + 1)
+End Function
+
+' The file name without its folder or extension.
+Private Function BaseName(ByVal path As String) As String
+    BaseName = FileName(path)
     If InStrRev(BaseName, ".") > 0 Then BaseName = Left(BaseName, InStrRev(BaseName, ".") - 1)
 End Function
+
+' Raises an error if a workbook with path's file name is open, from any folder
+' or from SharePoint: Excel can't save or open a second workbook of that name.
+Private Sub EnsureNameFree(ByVal path As String)
+    Dim wb As Object, name As String
+    name = FileName(path)
+    For Each wb In Workbooks
+        If StrComp(wb.Name, name, vbTextCompare) = 0 Then
+            Err.Raise MACRO_ERROR + 4, , name & " is open in Excel (" & wb.FullName & "). " & _
+                "Excel can't have two workbooks of the same name open, so close it and run the macro again."
+        End If
+    Next wb
+End Sub
 
 Private Function FileExists(ByVal path As String) As Boolean
     On Error Resume Next
@@ -1375,7 +1400,7 @@ Private Sub SaveNew(ByVal wb As Object, ByVal path As String)
     If Err.Number <> 0 Then
         On Error GoTo 0
         wb.Close False
-        Err.Raise vbObjectError + 3, , "Close " & path & " (it may be open on this PC) and run the macro again."
+        Err.Raise MACRO_ERROR + 3, , "Close " & path & " (it may be open on this PC) and run the macro again."
     End If
     On Error GoTo 0
     alerts = Application.DisplayAlerts

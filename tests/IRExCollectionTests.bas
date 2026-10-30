@@ -75,6 +75,7 @@ Private Function TestNames() As Variant
         "Export_report_lists_rows_whose_date_or_Year_cant_be_read", _
         "Export_report_lists_Main_Database_rows_with_no_No", _
         "Export_replaces_an_existing_Collection_Workbook_only_when_told_to", _
+        "Export_stops_before_writing_when_a_workbook_of_the_same_name_is_open", _
         "Export_leaves_the_Main_Database_as_it_was", _
         "Check_saves_a_highlighted_copy_and_leaves_the_shared_file_alone", _
         "Check_marks_rows_with_no_Export_ID_and_no_match_as_New_in_green", _
@@ -128,6 +129,7 @@ Private Sub Dispatch(ByVal name As String)
         Case "Export_report_lists_rows_whose_date_or_Year_cant_be_read": Export_report_lists_rows_whose_date_or_Year_cant_be_read
         Case "Export_report_lists_Main_Database_rows_with_no_No": Export_report_lists_Main_Database_rows_with_no_No
         Case "Export_replaces_an_existing_Collection_Workbook_only_when_told_to": Export_replaces_an_existing_Collection_Workbook_only_when_told_to
+        Case "Export_stops_before_writing_when_a_workbook_of_the_same_name_is_open": Export_stops_before_writing_when_a_workbook_of_the_same_name_is_open
         Case "Export_leaves_the_Main_Database_as_it_was": Export_leaves_the_Main_Database_as_it_was
         Case "Check_saves_a_highlighted_copy_and_leaves_the_shared_file_alone": Check_saves_a_highlighted_copy_and_leaves_the_shared_file_alone
         Case "Check_marks_rows_with_no_Export_ID_and_no_match_as_New_in_green": Check_marks_rows_with_no_Export_ID_and_no_match_as_New_in_green
@@ -473,6 +475,25 @@ Private Sub Export_replaces_an_existing_Collection_Workbook_only_when_told_to()
     End If
     AssertEqual path, RunExportStaffCopy(2025, OpenMainDatabase(), SharedFolder(), AdminFolder(), True), "returns the path when replacing"
     AssertTrue FileLen(staffCopy) <> FileLen(path), "the existing file is replaced"
+End Sub
+
+' Excel can't hold two workbooks of the same name, so a Collection Workbook of
+' that name open from another folder (say a downloaded copy) stops the export.
+Private Sub Export_stops_before_writing_when_a_workbook_of_the_same_name_is_open()
+    Dim folder As String, before As Long, message As String
+    folder = FreshFolder("export")
+    EnsureFolder folder & "shared"
+    EnsureFolder folder & "admin"
+    OpenWorkbook mFixtures & "check" & Application.PathSeparator & "IREX_Rehab_Data_Collection_CY2025.xlsx"
+    OpenMainDatabase
+    before = Workbooks.Count
+    On Error Resume Next
+    RunExportStaffCopy 2025, OpenMainDatabase(), SharedFolder(), AdminFolder(), True
+    message = Err.Description
+    On Error GoTo 0
+    AssertTrue InStr(message, "IREX_Rehab_Data_Collection_CY2025.xlsx is open") > 0, "error names the open workbook: [" & message & "]"
+    AssertEqual "", Dir(SharedFolder() & "*.xlsx") & Dir(AdminFolder() & "*.xlsx"), "nothing written"
+    AssertEqual before, Workbooks.Count, "no workbook left open"
 End Sub
 
 Private Sub Export_leaves_the_Main_Database_as_it_was()

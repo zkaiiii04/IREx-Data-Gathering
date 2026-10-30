@@ -24,6 +24,7 @@ Run it at the start of each year, after a final check of last year's Collection 
    - the **SharePoint folder Rehab Staff can edit**, synced to your PC. The Collection Workbook goes here.
    - the **folder only IREx Admin can open**. The ID lookup and the reports go here.
 3. If that year's Collection Workbook is already in the shared folder, the macro asks before replacing it. Replacing it loses every row Rehab Staff typed since your last check.
+4. **Close any copy of these files first**, including one opened from SharePoint, Teams or Downloads. Excel can't have two workbooks with the same name open at once, so the macro stops before writing anything and names the open file.
 
 It writes three files:
 
