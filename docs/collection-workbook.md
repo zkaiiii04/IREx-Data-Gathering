@@ -7,7 +7,8 @@ How IREx Admin installs and runs the two macros, and sets up the reminder emails
 1. Make a backup copy of the Main Database.
 2. Open the Main Database and press **Alt+F11** to open the VBA editor.
 3. Choose **File > Import File** and pick `src\IRExCollection.bas` from this repo. A module called `IRExCollection` appears next to the Gantt chart modules.
-4. Close the editor and save the Main Database.
+4. In the editor, choose **Tools > Options > General** and check that **Error Trapping** is set to **Break on Unhandled Errors** (the default). With **Break on All Errors**, the macros stop with "Run-time error '1004'" on errors they're built to handle.
+5. Close the editor and save the Main Database.
 
 Nothing else in the Main Database changes: no sheet, table, column, formula or button. The Gantt chart macros are untouched.
 
