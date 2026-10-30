@@ -68,7 +68,7 @@ Private Const COUNT_EXTRA As Long = 6
 Private Const RULE_DATE As Long = 1             ' its date falls in the year
 Private Const RULE_YEAR As Long = 2             ' its Year is the year
 Private Const RULE_YEAR_THEN_DATE As Long = 3   ' its Year, or its date when Year is empty
-Private Const RULE_PROJECT As Long = 4          ' its LOA overlaps the year, and it isn't Dropped
+Private Const RULE_PROJECT As Long = 4          ' its LOA overlaps the year, or Applied with no LOA; never Dropped
 
 ' Selection outcomes for one row.
 Private Const PICK_OUT As Long = 0
@@ -583,8 +583,10 @@ End Function
 
 Private Function PickProject(ByVal loaStart As Variant, ByVal loaEnd As Variant, ByVal status As Variant, ByVal calendarYear As Long) As Long
     Dim startDate As Date, endDate As Date
-    If Left(Norm(status), 7) = "dropped" Or IsBlank(loaStart) Then
+    If Left(Norm(status), 7) = "dropped" Then
         PickProject = PICK_OUT
+    ElseIf IsBlank(loaStart) Then
+        If Left(Norm(status), 7) = "applied" Then PickProject = PICK_IN Else PickProject = PICK_OUT
     ElseIf Not ReadDate(loaStart, startDate) Then
         PickProject = PICK_UNREADABLE
     ElseIf startDate > DateSerial(calendarYear, 12, 31) Then

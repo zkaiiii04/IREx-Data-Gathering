@@ -249,10 +249,10 @@ PRJS = [
     project("GRT-005", "Community stroke registry", "Registry", "LF", "Test Foundation",
             "Extramural", "Tan Wei Ling", "Raj Kumar", D(2022, 1, 1), None, 250000, 250000,
             "In Progress"),
-    # Applied, no LOA, no Grant Ref No: not exported
+    # Applied, no LOA, no Grant Ref No: exported
     project(None, "Exoskeleton feasibility", "Exo", "Innovation", "Test Innovation Fund",
             "Intramural", "Raj Kumar", None, None, None, 60000, None, "Applied"),
-    # Applied (Oversight), no LOA: not exported
+    # Applied (Oversight), no LOA: exported
     project("GRT-007", "Regional falls network", "FallsNet", "Research", "Test Fund",
             "Extramural", "Goh Mei Xin", None, None, None, 90000, None,
             "Applied (Oversight)"),

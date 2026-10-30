@@ -43,7 +43,7 @@ The tabs come in this order. No tab has the Main Database's **No.** column: Reha
 
 | Tab | Rows | Columns |
 |---|---|---|
-| Projects | LOA Start on or before 31 Dec and LOA End on or after 1 Jan (or no LOA End). Never a project with no LOA Start (Applied ones too) or with a status starting "Dropped". | Grant Ref No, Project Name, Category, Grant / Collaborator Partners, Grant Type, PI, Co-I/Collaborator, LOA Start Date, LOA End Date, Grant Amount, Grant Amt (Awarded to TTSH), Status |
+| Projects | LOA Start on or before 31 Dec and LOA End on or after 1 Jan (or no LOA End), or a status starting "Applied" with no LOA Start. Never a project whose status starts with "Dropped". | Grant Ref No, Project Name, Category, Grant / Collaborator Partners, Grant Type, PI, Co-I/Collaborator, LOA Start Date, LOA End Date, Grant Amount, Grant Amt (Awarded to TTSH), Status |
 | Publications | Date of Publication in the year | All except No. and the four JIF columns. Hidden columns stay hidden. |
 | Poster & Oral Presentation | Date of Presentation in the year | All except No. |
 | Education | Year is the year, or the date is in the year when Year is empty | All |

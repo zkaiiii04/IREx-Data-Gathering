@@ -60,7 +60,7 @@ Private Function TestNames() As Variant
         "Export_takes_Presentations_and_Media_Appearances_whose_date_falls_in_the_year", _
         "Export_takes_Talent_Developments_whose_Year_is_the_year", _
         "Export_takes_Education_Activities_by_Year_or_by_date_when_Year_is_empty", _
-        "Export_takes_Projects_live_during_the_year_but_not_Dropped_ones_or_ones_with_no_LOA", _
+        "Export_takes_Projects_live_during_the_year_and_Applied_ones_with_no_LOA_but_not_Dropped_ones", _
         "Export_keeps_every_Publications_column_but_the_four_JIF_columns", _
         "Export_keeps_columns_hidden_that_are_hidden_in_the_Main_Database", _
         "Export_keeps_only_the_columns_a_submitter_needs_on_Projects", _
@@ -115,7 +115,7 @@ Private Sub Dispatch(ByVal name As String)
         Case "Export_takes_Presentations_and_Media_Appearances_whose_date_falls_in_the_year": Export_takes_Presentations_and_Media_Appearances_whose_date_falls_in_the_year
         Case "Export_takes_Talent_Developments_whose_Year_is_the_year": Export_takes_Talent_Developments_whose_Year_is_the_year
         Case "Export_takes_Education_Activities_by_Year_or_by_date_when_Year_is_empty": Export_takes_Education_Activities_by_Year_or_by_date_when_Year_is_empty
-        Case "Export_takes_Projects_live_during_the_year_but_not_Dropped_ones_or_ones_with_no_LOA": Export_takes_Projects_live_during_the_year_but_not_Dropped_ones_or_ones_with_no_LOA
+        Case "Export_takes_Projects_live_during_the_year_and_Applied_ones_with_no_LOA_but_not_Dropped_ones": Export_takes_Projects_live_during_the_year_and_Applied_ones_with_no_LOA_but_not_Dropped_ones
         Case "Export_keeps_every_Publications_column_but_the_four_JIF_columns": Export_keeps_every_Publications_column_but_the_four_JIF_columns
         Case "Export_keeps_columns_hidden_that_are_hidden_in_the_Main_Database": Export_keeps_columns_hidden_that_are_hidden_in_the_Main_Database
         Case "Export_keeps_only_the_columns_a_submitter_needs_on_Projects": Export_keeps_only_the_columns_a_submitter_needs_on_Projects
@@ -267,11 +267,12 @@ Private Sub Export_takes_Education_Activities_by_Year_or_by_date_when_Year_is_em
 End Sub
 
 ' Live: LOA Start on or before 31 Dec and LOA End on or after 1 Jan, or no LOA End.
-' A project with no LOA Start (Applied ones too) or a Dropped status is left out.
-Private Sub Export_takes_Projects_live_during_the_year_but_not_Dropped_ones_or_ones_with_no_LOA()
+' A Dropped project is left out, whatever its LOA.
+Private Sub Export_takes_Projects_live_during_the_year_and_Applied_ones_with_no_LOA_but_not_Dropped_ones()
     Dim cw As Object
     Set cw = OpenWorkbook(ExportFixture(2025))
-    AssertEqual "Robot-assisted gait study|Home exercise app|Community stroke registry|Pressure mapping pilot", _
+    AssertEqual "Robot-assisted gait study|Home exercise app|Community stroke registry|Exoskeleton feasibility|" & _
+        "Regional falls network|Pressure mapping pilot", _
         ColumnText(cw.Worksheets("Projects"), "Project Name"), "projects"
 End Sub
 
@@ -299,7 +300,7 @@ Private Sub Export_keeps_only_the_columns_a_submitter_needs_on_Projects()
     AssertEqual Squash("Grant Ref No|Project Name|Category|Grant / Collaborator Partners|Grant Type|PI|Co-I/Collaborator|" & _
         "LOA Start Date|LOA End Date|Grant Amount|Grant Amt (Awarded to TTSH)|Status|Export ID"), _
         HeaderList(cw.Worksheets("Projects")), "Projects headers"
-    AssertEqual "500000|80000|250000|30000", ColumnText(cw.Worksheets("Projects"), "Grant Amount"), "Grant Amount"
+    AssertEqual "500000|80000|250000|60000|90000|30000", ColumnText(cw.Worksheets("Projects"), "Grant Amount"), "Grant Amount"
 End Sub
 
 Private Sub Export_keeps_every_column_on_the_other_tabs()
@@ -341,7 +342,7 @@ Private Sub Export_writes_a_hidden_unique_Export_ID_on_every_row()
     AssertEqual "MED-0001|MED-0002|MED-0003|MED-0004", ColumnText(cw.Worksheets("Media"), "Export ID"), "Media"
     AssertEqual "TD-0001|TD-0002|TD-0003", ColumnText(cw.Worksheets("Talent Development"), "Export ID"), "Talent Development"
     AssertEqual "EDU-0001|EDU-0002|EDU-0003|EDU-0004|EDU-0005|EDU-0006", ColumnText(cw.Worksheets("Education"), "Export ID"), "Education"
-    AssertEqual "PRJ-0001|PRJ-0002|PRJ-0003|PRJ-0004", ColumnText(cw.Worksheets("Projects"), "Export ID"), "Projects"
+    AssertEqual "PRJ-0001|PRJ-0002|PRJ-0003|PRJ-0004|PRJ-0005|PRJ-0006", ColumnText(cw.Worksheets("Projects"), "Export ID"), "Projects"
 End Sub
 
 Private Sub Export_keeps_text_that_looks_like_a_number_or_date_as_text()
@@ -441,7 +442,7 @@ Private Sub Export_writes_an_ID_lookup_with_each_rows_tab_No_title_and_match_key
     Set ws = lk.Worksheets(1)
     AssertEqual "export id|tab|no.|title|key 1|key 2", Squash(Join(Array(ws.Range("A1").Value, ws.Range("B1").Value, _
         ws.Range("C1").Value, ws.Range("D1").Value, ws.Range("E1").Value, ws.Range("F1").Value), "|")), "headers"
-    AssertEqual 25, LastFilledRow(ws, 1) - 1, "one row per exported record"
+    AssertEqual 27, LastFilledRow(ws, 1) - 1, "one row per exported record"
     AssertEqual "Publications|1|Robotic gait training after stroke: a pilot study|10.1000/test.0001|Robotic gait training after stroke: a pilot study", _
         LookupRow(ws, "PUB-0001"), "PUB-0001"
     AssertEqual "Publications|3|Spasticity outcomes after botulinum toxin||Spasticity outcomes after botulinum toxin", LookupRow(ws, "PUB-0002"), "PUB-0002"
@@ -451,7 +452,7 @@ Private Sub Export_writes_an_ID_lookup_with_each_rows_tab_No_title_and_match_key
     AssertEqual "Talent Development||Test Fellowship Award|Tan Wei Ling|Test Fellowship Award", LookupRow(ws, "TD-0001"), "TD-0001"
     AssertEqual "Education||Spasticity management workshop|Spasticity management workshop|2025", LookupRow(ws, "EDU-0001"), "EDU-0001"
     AssertEqual "Education||Pressure injury prevention webinar|Pressure injury prevention webinar|", LookupRow(ws, "EDU-0002"), "EDU-0002"
-    AssertEqual "Projects||Pressure mapping pilot|GRT-009|Pressure mapping pilot", LookupRow(ws, "PRJ-0004"), "PRJ-0004"
+    AssertEqual "Projects||Exoskeleton feasibility||Exoskeleton feasibility", LookupRow(ws, "PRJ-0004"), "PRJ-0004"
     AssertEqual "Projects||Robot-assisted gait study|GRT-001|Robot-assisted gait study", LookupRow(ws, "PRJ-0001"), "PRJ-0001"
 End Sub
 
@@ -464,7 +465,7 @@ Private Sub Export_report_counts_the_rows_exported_per_tab()
     AssertContains report, "Exported|Media|||4", "Media"
     AssertContains report, "Exported|Talent Development|||3", "Talent Development"
     AssertContains report, "Exported|Education|||6", "Education"
-    AssertContains report, "Exported|Projects|||4", "Projects"
+    AssertContains report, "Exported|Projects|||6", "Projects"
 End Sub
 
 ' Lines read "Unreadable date|tab|Main Database row|column|value".
