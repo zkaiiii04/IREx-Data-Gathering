@@ -193,10 +193,25 @@ The user questioned old round 3 Q6 (importing existing data). The data flow they
 ## Settled (round 14)
 
 1. **ID lookup.** The export saves a small lookup file in the admin-only folder, listing each Export ID with its tab, No. and title. The check uses it to find the record in today's main database: by No. if there is one, otherwise by title. Rows it can't find are listed.
-2. **File name.** `IREX_Rehab_Med_Data_Collection_CY<year>.xlsx` if Rehab Med's is the only collection file today. If other Family Groups have their own files, there's one shared file for everyone instead (e.g. `IREX_Rehab_Data_Collection_CY<year>.xlsx`). Whether other files exist still needs confirming before the build.
+2. **File name.** `IREX_Rehab_Med_Data_Collection_CY<year>.xlsx` if Rehab Med's is the only collection file today. Other Family Groups have their own files, so there's one shared file for everyone: `IREX_Rehab_Data_Collection_CY<year>.xlsx`.
 3. **The Collection Workbook design below is confirmed** as the shared understanding. Building starts only when the user gives the go-ahead.
 4. **Power Apps appears to be available.** The user can create a canvas app. That makes Power Apps, with an *Add another* button, the choice for the Form phase (round 6 Q3), and Microsoft Forms with caps is no longer needed as the fallback. Still to test: sharing an app with a colleague and calling a Power Automate flow from it.
 5. **Category of Article.** The user asked where it's stated. It's a column in the main database's Publications table (`tbl_Publication`). Its values are whatever has been entered there: the column's filter dropdown lists them, and so does `tbl_List`, if the column has a dropdown list.
+
+## After round 14: file name and a second look at the main database
+
+- **One Collection Workbook for everyone.** Rehab Med isn't the only collection file today, so one shared file replaces them all: `IREX_Rehab_Data_Collection_CY<year>.xlsx`.
+- **Category of Article does exist, but it's hidden.** It's column M of `tbl_Publication` on `DB_Publications`. Columns J (Full Author Listing), M (Category of Article) and N (Other Remarks) are all hidden. Category of Article holds a single value, "Original Research Paper", in 89 of 116 rows. The rest are blank.
+- **Which tabs have a No. column:**
+  - `DB_Publications`: typed, filled on all 116 rows, no duplicates.
+  - `DB_Poster& Oral Presentation`: typed, filled on all 118 rows, no duplicates.
+  - `DB_Media`: a **formula**, so it changes when rows move. Media also isn't an Excel table.
+  - `DB_Talent Develop`, `DB_Education` and `DB_PrjGeneralInfo` have no No. column.
+
+  This confirms the Export ID decision.
+- **The main database also has rows outside its tables.** `DB_Education` has 4 filled rows below `tbl_Education`. The export has to read them too.
+- **`tbl_Publication` starts at row 3.** Rows 1–2 hold the Top 10% / Top 25% COUNTIFS inputs.
+- **Project statuses come from `tbllist_PrjStatus`** (17 values, including the Oversight variants). The Status column on `DB_PrjGeneralInfo` uses it as a dropdown.
 
 ## Collection Workbook design (confirmed in round 14)
 
