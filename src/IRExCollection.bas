@@ -31,13 +31,30 @@ Private Const HEADER_ROW As Long = 3            ' Collection Workbook header row
 Private Const MAX_HEADER_SCAN As Long = 30
 Private Const MAX_COLUMN_WIDTH As Double = 60
 Private Const DEFAULT_COLUMN_WIDTH As Double = 14
+Private Const MIN_COLUMN_WIDTH As Double = 16    ' wide enough for a date, and for header words not to break
 Private Const EXPORT_ID_HEADER As String = "Export ID"
+Private Const NO_HEADER As String = "no."       ' the Main Database's row number, never exported
 Private Const ROOM_FOR_NEW_ROWS As Long = 500   ' blank rows under the export that get the dropdowns
 Private Const XL_VALIDATE_LIST As Long = 3
 Private Const MACRO_ERROR As Long = &H80040000   ' vbObjectError, which LibreOffice lacks
 Private Const CHECK_NOTE_HEADER As String = "Check note"
 Private Const GREEN As Long = 13561798         ' RGB(198, 239, 206): new
 Private Const YELLOW As Long = 10284031        ' RGB(255, 235, 156): changed
+
+' Collection Workbook layout.
+Private Const XL_CENTER As Long = -4108
+Private Const XL_LEFT As Long = -4131
+Private Const XL_CONTINUOUS As Long = 1
+Private Const WHITE As Long = 16777215
+Private Const HEADER_FILL As Long = 7949855     ' RGB(31, 78, 121): dark blue
+Private Const NOTE_FILL As Long = 16247773      ' RGB(221, 235, 247): pale blue
+Private Const GRID_COLOUR As Long = 12566463    ' RGB(191, 191, 191): light grey
+Private Const NOTE_FONT_SIZE As Long = 14
+Private Const HEADER_FONT_SIZE As Long = 12
+Private Const MIN_ROW_HEIGHT As Double = 24
+Private Const ROW_PADDING As Double = 8         ' points added to each row's fitted height
+Private Const MAX_ROW_HEIGHT As Double = 409    ' Excel's limit
+Private Const TABLE_STYLE As String = "IREx Collection"
 
 ' Summary counts, one per tab.
 Private Const COUNT_NEW As Long = 1
@@ -51,7 +68,7 @@ Private Const COUNT_EXTRA As Long = 6
 Private Const RULE_DATE As Long = 1             ' its date falls in the year
 Private Const RULE_YEAR As Long = 2             ' its Year is the year
 Private Const RULE_YEAR_THEN_DATE As Long = 3   ' its Year, or its date when Year is empty
-Private Const RULE_PROJECT As Long = 4          ' its LOA overlaps the year, or Applied with no LOA
+Private Const RULE_PROJECT As Long = 4          ' its LOA overlaps the year, and it isn't Dropped
 
 ' Selection outcomes for one row.
 Private Const PICK_OUT As Long = 0
@@ -300,6 +317,7 @@ Private Sub ExportTab(ByVal mainDatabase As Object, ByRef spec As TabSpec, ByVal
         ws.Cells(HEADER_ROW, c).Value = src.Headers(cols(c))
         width = srcSheet.Columns(src.Cols(cols(c))).ColumnWidth
         If width <= 0 Then width = DEFAULT_COLUMN_WIDTH        ' a hidden column reads as width 0
+        If width < MIN_COLUMN_WIDTH Then width = MIN_COLUMN_WIDTH
         ws.Columns(c).ColumnWidth = Application.WorksheetFunction.Min(width, MAX_COLUMN_WIDTH)
         ws.Columns(c).Hidden = srcSheet.Columns(src.Cols(cols(c))).Hidden
     Next c
@@ -345,7 +363,70 @@ Private Sub ExportTab(ByVal mainDatabase As Object, ByRef spec As TabSpec, ByVal
             End If
         End If
     Next c
+    LayOutTable ws, Application.WorksheetFunction.Max(outRow, HEADER_ROW + 1), idCol
+    LayOutNote ws, n
     MakeTable ws, spec, Application.WorksheetFunction.Max(outRow, HEADER_ROW + 1), idCol
+End Sub
+
+' Centred, wrapped text in rows with room to breathe and a light grid, under a
+' bold header row in white on dark blue. The rows left for new entries get the
+' same alignment and height.
+Private Sub LayOutTable(ByVal ws As Object, ByVal lastRow As Long, ByVal lastCol As Long)
+    Dim r As Long, fitted As Double
+    With ws.Range(ws.Cells(HEADER_ROW, 1), ws.Cells(lastRow + ROOM_FOR_NEW_ROWS, lastCol))
+        .HorizontalAlignment = XL_CENTER
+        .VerticalAlignment = XL_CENTER
+        .WrapText = True
+    End With
+    With ws.Range(ws.Cells(HEADER_ROW, 1), ws.Cells(HEADER_ROW, lastCol))
+        .Font.Bold = True
+        .Font.Size = HEADER_FONT_SIZE
+        .Font.Color = WHITE
+        .Interior.Color = HEADER_FILL
+    End With
+    With ws.Range(ws.Cells(HEADER_ROW, 1), ws.Cells(lastRow, lastCol)).Borders
+        .LineStyle = XL_CONTINUOUS
+        .Color = GRID_COLOUR
+    End With
+    For r = HEADER_ROW To lastRow
+        ws.Rows(r).AutoFit
+        fitted = ws.Rows(r).RowHeight + ROW_PADDING
+        If fitted < MIN_ROW_HEIGHT Then fitted = MIN_ROW_HEIGHT
+        If fitted > MAX_ROW_HEIGHT Then fitted = MAX_ROW_HEIGHT
+        ws.Rows(r).RowHeight = fitted
+    Next r
+    ws.Range(ws.Rows(lastRow + 1), ws.Rows(lastRow + ROOM_FOR_NEW_ROWS)).RowHeight = MIN_ROW_HEIGHT
+End Sub
+
+' The note goes in one cell merged across the table's columns, in large type.
+' Excel can't fit a merged cell's height to its text, so the row height comes
+' from the note's length and the width of the visible columns.
+Private Sub LayOutNote(ByVal ws As Object, ByVal lastCol As Long)
+    Dim c As Long, width As Double, perLine As Long, lines As Long, para As Variant, height As Double
+    If lastCol < 1 Then lastCol = 1
+    With ws.Range(ws.Cells(1, 1), ws.Cells(1, lastCol))
+        .Merge
+        .WrapText = True
+        .HorizontalAlignment = XL_LEFT
+        .VerticalAlignment = XL_CENTER
+        .Font.Size = NOTE_FONT_SIZE
+        .Interior.Color = NOTE_FILL
+    End With
+    On Error Resume Next        ' the bold heading line is a nicety
+    ws.Cells(1, 1).Characters(1, InStr(CStr(ws.Cells(1, 1).Value), vbLf) - 1).Font.Bold = True
+    On Error GoTo 0
+    For c = 1 To lastCol
+        If Not ws.Columns(c).Hidden Then width = width + ws.Columns(c).ColumnWidth
+    Next c
+    perLine = Int(width * 11 / NOTE_FONT_SIZE * 0.85)     ' column widths count 11-point characters
+    If perLine < 20 Then perLine = 20
+    For Each para In Split(CStr(ws.Cells(1, 1).Value), vbLf)
+        lines = lines + 1 + Int(Len(para) / perLine)
+    Next para
+    height = lines * NOTE_FONT_SIZE * 1.4 + 12
+    If height > MAX_ROW_HEIGHT Then height = MAX_ROW_HEIGHT
+    ws.Rows(1).RowHeight = height
+    ws.Rows(2).RowHeight = 8
 End Sub
 
 ' The cell's dropdown as a fixed list: the list typed into its validation, or
@@ -386,16 +467,46 @@ Private Sub MakeTable(ByVal ws As Object, ByRef spec As TabSpec, ByVal lastRow A
     Dim t As Object
     On Error Resume Next        ' LibreOffice has no ListObjects; the sheet works without one
     Set t = ws.ListObjects.Add(1, ws.Range(ws.Cells(HEADER_ROW, 1), ws.Cells(lastRow, lastCol)), , 1)
-    If Not t Is Nothing Then t.Name = "Collection_" & spec.Prefix
+    If Not t Is Nothing Then
+        t.Name = "Collection_" & spec.Prefix
+        t.ShowTableStyleRowStripes = False
+        AddTableStyle ws.Parent
+        t.TableStyle = TABLE_STYLE
+    End If
     Err.Clear
 End Sub
 
+' A table style with the same grid and header colours as the cell formatting,
+' and no stripes, so rows typed below the table look like the rest. (A table
+' style can't set font size, so the header's size comes from cell formatting.)
+Private Sub AddTableStyle(ByVal wb As Object)
+    Const WHOLE_TABLE As Long = 0, HEADER_ROW_ELEMENT As Long = 1
+    Dim s As Object, b As Variant
+    On Error Resume Next
+    Set s = wb.TableStyles(TABLE_STYLE)
+    On Error GoTo 0
+    If Not s Is Nothing Then Exit Sub
+    Set s = wb.TableStyles.Add(TABLE_STYLE)
+    For Each b In Array(7, 8, 9, 10, 11, 12)    ' xlEdgeLeft to xlInsideHorizontal
+        With s.TableStyleElements(WHOLE_TABLE).Borders(b)
+            .LineStyle = XL_CONTINUOUS
+            .Color = GRID_COLOUR
+        End With
+    Next b
+    With s.TableStyleElements(HEADER_ROW_ELEMENT)
+        .Interior.Color = HEADER_FILL
+        .Font.Bold = True
+        .Font.Color = WHITE
+    End With
+End Sub
+
 Private Function FindYourRecordsNote(ByRef spec As TabSpec) As String
-    FindYourRecordsNote = "How to find your records: if Excel offers Sheet View (View > Sheet View > New), choose it first, " & _
-        "so that your sorting and filtering don't change what colleagues see. Then press Ctrl+F and search for your name, " & _
-        "or use the filter arrow on the " & spec.NameColumn & " column. " & _
-        "To report something new, type it in a new row below the existing ones. " & _
-        "If something has changed, such as a status, update your existing row."
+    FindYourRecordsNote = "How to find your records" & vbLf & _
+        "1. If Excel offers Sheet View (View > Sheet View > New), choose it first, " & _
+        "so that your sorting and filtering don't change what colleagues see." & vbLf & _
+        "2. Press Ctrl+F and search for your name, or use the filter arrow on the " & spec.NameColumn & " column." & vbLf & _
+        "Something new: type it in a new row below the existing ones. " & _
+        "Something changed, such as a status: update your existing row."
 End Function
 
 Private Sub CopyNumberFormat(ByVal fromCell As Object, ByVal toCell As Object)
@@ -419,7 +530,7 @@ Private Function ExportColumns(ByRef spec As TabSpec, ByRef src As SheetRows, By
         Next i
     Else
         For c = 1 To src.ColCount
-            If Not MatchesAny(src.Keys(c), spec.Drop) Then
+            If Not MatchesAny(src.Keys(c), spec.Drop) And src.Keys(c) <> NO_HEADER Then
                 n = n + 1
                 cols(n) = c
             End If
@@ -472,8 +583,8 @@ End Function
 
 Private Function PickProject(ByVal loaStart As Variant, ByVal loaEnd As Variant, ByVal status As Variant, ByVal calendarYear As Long) As Long
     Dim startDate As Date, endDate As Date
-    If IsBlank(loaStart) Then
-        If Left(Norm(status), 7) = "applied" Then PickProject = PICK_IN Else PickProject = PICK_OUT
+    If Left(Norm(status), 7) = "dropped" Or IsBlank(loaStart) Then
+        PickProject = PICK_OUT
     ElseIf Not ReadDate(loaStart, startDate) Then
         PickProject = PICK_UNREADABLE
     ElseIf startDate > DateSerial(calendarYear, 12, 31) Then
@@ -563,6 +674,8 @@ Private Sub CheckTab(ByVal cw As Object, ByVal mainDatabase As Object, ByVal t A
         For k = 1 To n
             If md.Keys(exported(k)) = rows.Keys(c) Then mdCol(c) = exported(k)
         Next k
+        ' Collection Workbooks exported before No. was left out still have it.
+        If mdCol(c) = 0 And rows.Keys(c) = NO_HEADER Then mdCol(c) = FindColumn(md, NO_HEADER)
         If mdCol(c) = 0 And c <> idCol And rows.Keys(c) <> "" And rows.Keys(c) <> Norm(CHECK_NOTE_HEADER) Then
             mCounts(t, COUNT_EXTRA) = mCounts(t, COUNT_EXTRA) + 1
             ReportLine "Extra column", spec.Title, "", "", rows.Headers(c)
@@ -854,43 +967,6 @@ End Sub
 
 Private Sub LoadTabs()
     With mTabs(1)
-        .Title = "Publications": .NameColumn = "TTSH Contributor": .Prefix = "PUB"
-        .SheetName = "DB_Publications": .TableName = "tbl_Publication": .Anchor = "title of article"
-        .Drop = "journal category & jif percentile listing*|jif percentile*"
-        .Rule = RULE_DATE: .DateHeader = "date of publication"
-        .NoHeader = "no.": .TitleHeader = "title of article": .Key1Header = "doi": .Key2Header = "title of article"
-        .Keys = "0;1;2"
-    End With
-    With mTabs(2)
-        .Title = "Poster & Oral Presentation": .NameColumn = "Full Name": .Prefix = "PRES"
-        .SheetName = "DB_Poster& Oral Presentation": .TableName = "tbl_PosterOralPresentation"
-        .Anchor = "title of presentation/topic"
-        .Rule = RULE_DATE: .DateHeader = "date of presentation"
-        .NoHeader = "no.": .TitleHeader = "title of presentation/topic": .Key1Header = "title of presentation/topic": .Key2Header = ""
-        .Keys = "0;1"
-    End With
-    With mTabs(3)
-        .Title = "Media": .NameColumn = "Full name": .Prefix = "MED"
-        .SheetName = "DB_Media": .TableName = "": .Anchor = "platform of media"
-        .Rule = RULE_DATE: .DateHeader = "media publishing date"
-        .NoHeader = "no.": .TitleHeader = "title of media published*": .Key1Header = "title of media published*": .Key2Header = "name of media published source*"
-        .Keys = "1+2"
-    End With
-    With mTabs(4)
-        .Title = "Talent Development": .NameColumn = "Name": .Prefix = "TD"
-        .SheetName = "DB_Talent Develop": .TableName = "tbl_TalentDevelop": .Anchor = "award description"
-        .Rule = RULE_YEAR: .YearHeader = "year"
-        .NoHeader = "": .TitleHeader = "award description": .Key1Header = "name": .Key2Header = "award description"
-        .Keys = "1+2"
-    End With
-    With mTabs(5)
-        .Title = "Education": .NameColumn = "Trainer(s)/Speaker(s)": .Prefix = "EDU"
-        .SheetName = "DB_Education": .TableName = "tbl_Education": .Anchor = "title of course*"
-        .Rule = RULE_YEAR_THEN_DATE: .YearHeader = "year": .DateHeader = "date/year/period"
-        .NoHeader = "": .TitleHeader = "title of course*": .Key1Header = "title of course*": .Key2Header = "year"
-        .Keys = "1+2"
-    End With
-    With mTabs(6)
         .Title = "Projects": .NameColumn = "PI or Co-I/Collaborator": .Prefix = "PRJ"
         .SheetName = "DB_PrjGeneralInfo": .TableName = "tbl_PrjGeneralInfo": .Anchor = "project name"
         .Only = "grant ref no|project name|category|grant / collaborator partners|grant type|pi|" & _
@@ -898,6 +974,43 @@ Private Sub LoadTabs()
         .Rule = RULE_PROJECT
         .NoHeader = "": .TitleHeader = "project name": .Key1Header = "grant ref no": .Key2Header = "project name"
         .Keys = "1;2"
+    End With
+    With mTabs(2)
+        .Title = "Publications": .NameColumn = "TTSH Contributor": .Prefix = "PUB"
+        .SheetName = "DB_Publications": .TableName = "tbl_Publication": .Anchor = "title of article"
+        .Drop = "journal category & jif percentile listing*|jif percentile*"
+        .Rule = RULE_DATE: .DateHeader = "date of publication"
+        .NoHeader = "no.": .TitleHeader = "title of article": .Key1Header = "doi": .Key2Header = "title of article"
+        .Keys = "0;1;2"
+    End With
+    With mTabs(3)
+        .Title = "Poster & Oral Presentation": .NameColumn = "Full Name": .Prefix = "PRES"
+        .SheetName = "DB_Poster& Oral Presentation": .TableName = "tbl_PosterOralPresentation"
+        .Anchor = "title of presentation/topic"
+        .Rule = RULE_DATE: .DateHeader = "date of presentation"
+        .NoHeader = "no.": .TitleHeader = "title of presentation/topic": .Key1Header = "title of presentation/topic": .Key2Header = ""
+        .Keys = "0;1"
+    End With
+    With mTabs(4)
+        .Title = "Education": .NameColumn = "Trainer(s)/Speaker(s)": .Prefix = "EDU"
+        .SheetName = "DB_Education": .TableName = "tbl_Education": .Anchor = "title of course*"
+        .Rule = RULE_YEAR_THEN_DATE: .YearHeader = "year": .DateHeader = "date/year/period"
+        .NoHeader = "": .TitleHeader = "title of course*": .Key1Header = "title of course*": .Key2Header = "year"
+        .Keys = "1+2"
+    End With
+    With mTabs(5)
+        .Title = "Media": .NameColumn = "Full name": .Prefix = "MED"
+        .SheetName = "DB_Media": .TableName = "": .Anchor = "platform of media"
+        .Rule = RULE_DATE: .DateHeader = "media publishing date"
+        .NoHeader = "no.": .TitleHeader = "title of media published*": .Key1Header = "title of media published*": .Key2Header = "name of media published source*"
+        .Keys = "1+2"
+    End With
+    With mTabs(6)
+        .Title = "Talent Development": .NameColumn = "Name": .Prefix = "TD"
+        .SheetName = "DB_Talent Develop": .TableName = "tbl_TalentDevelop": .Anchor = "award description"
+        .Rule = RULE_YEAR: .YearHeader = "year"
+        .NoHeader = "": .TitleHeader = "award description": .Key1Header = "name": .Key2Header = "award description"
+        .Keys = "1+2"
     End With
 End Sub
 

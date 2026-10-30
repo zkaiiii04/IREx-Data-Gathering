@@ -39,18 +39,21 @@ Then share the Collection Workbook's link: in SharePoint, choose **Share > Copy 
 
 ### What it exports
 
+The tabs come in this order. No tab has the Main Database's **No.** column: Rehab Staff don't need it, and the ID lookup keeps each row's No. for the check.
+
 | Tab | Rows | Columns |
 |---|---|---|
-| Publications | Date of Publication in the year | All except the four JIF columns. Hidden columns stay hidden. |
-| Poster & Oral Presentation | Date of Presentation in the year | All |
-| Media | Media Publishing Date in the year | All, with No. as plain numbers |
-| Talent Development | Year is the year | All, including Grant Amount |
+| Projects | LOA Start on or before 31 Dec and LOA End on or after 1 Jan (or no LOA End). Never a project with no LOA Start (Applied ones too) or with a status starting "Dropped". | Grant Ref No, Project Name, Category, Grant / Collaborator Partners, Grant Type, PI, Co-I/Collaborator, LOA Start Date, LOA End Date, Grant Amount, Grant Amt (Awarded to TTSH), Status |
+| Publications | Date of Publication in the year | All except No. and the four JIF columns. Hidden columns stay hidden. |
+| Poster & Oral Presentation | Date of Presentation in the year | All except No. |
 | Education | Year is the year, or the date is in the year when Year is empty | All |
-| Projects | LOA Start on or before 31 Dec and LOA End on or after 1 Jan (or no LOA End), or a status starting "Applied" with no LOA Start | Grant Ref No, Project Name, Category, Grant / Collaborator Partners, Grant Type, PI, Co-I/Collaborator, LOA Start Date, LOA End Date, Grant Amount, Grant Amt (Awarded to TTSH), Status |
+| Media | Media Publishing Date in the year | All except No. |
+| Talent Development | Year is the year | All, including Grant Amount |
 
 - **Dates it can read:** real dates, Excel date numbers (also when stored as text), and text such as "20 Aug 25", "20 August 2025", "2025-08-20" or "20/8/2025". A row whose date or Year can't be read, such as "(blank)", "Nov 26(KIV)" or "25 & 26 Feb 23", is exported and listed in the report so you can fix it.
 - **Rows outside the tables:** every filled row under a table, within the table's columns, is read, even after blank rows. That includes the rows below `tbl_Education`.
 - **Dropdowns:** Education type, audience and Local/Overseas, and Project Status are carried over as fixed lists, with room for new rows.
+- **Layout:** the how-to note sits in large type across the top of each table. The header row is bold, in white on dark blue. Every cell is centred, wraps its text, and has a light grey border, and rows don't alternate colours. Columns are at least wide enough for a date.
 - **Export ID:** each exported row gets one in a hidden last column (`PUB-0001`, `PRES-0001`, `MED-0001`, `TD-0001`, `EDU-0001`, `PRJ-0001`). Ask Rehab Staff not to delete that column.
 
 ## Check Collection Workbook

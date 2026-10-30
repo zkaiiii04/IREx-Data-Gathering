@@ -229,7 +229,8 @@ The user questioned old round 3 Q6 (importing existing data). The data flow they
 **Main database: one new VBA module, no sheet changes**
 - **Export Staff Copy** asks which year to export.
   - Research Outputs and Education are included by date in that year, and Talent Development by Year.
-  - Projects are included when LOA start ≤ 31 Dec and LOA end ≥ 1 Jan (or there's no end), plus Applied projects with no LOA.
+  - Projects are included when LOA start ≤ 31 Dec and LOA end ≥ 1 Jan (or there's no end). After the first real export, the user dropped the Applied-with-no-LOA rule: a project with no LOA start, or with status Dropped, is never exported.
+  - After the first real export, the user also asked to leave out No. on every tab, order the tabs Projects, Publications, Poster & Oral Presentation, Education, Media, Talent Development, and lay the tabs out for reading (large note, bold header, centred wrapped text, no striped rows).
   - It lists rows with unreadable dates (and includes them) and rows with no No.
   - It writes the Collection Workbook and the ID lookup.
   - It runs once at the start of each year, after a final check. A mid-year re-export only happens straight after a check and copy-over.

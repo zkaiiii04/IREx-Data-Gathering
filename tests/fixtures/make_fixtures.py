@@ -249,10 +249,10 @@ PRJS = [
     project("GRT-005", "Community stroke registry", "Registry", "LF", "Test Foundation",
             "Extramural", "Tan Wei Ling", "Raj Kumar", D(2022, 1, 1), None, 250000, 250000,
             "In Progress"),
-    # Applied, no LOA, no Grant Ref No: exported
+    # Applied, no LOA, no Grant Ref No: not exported
     project(None, "Exoskeleton feasibility", "Exo", "Innovation", "Test Innovation Fund",
             "Intramural", "Raj Kumar", None, None, None, 60000, None, "Applied"),
-    # Applied (Oversight), no LOA: exported
+    # Applied (Oversight), no LOA: not exported
     project("GRT-007", "Regional falls network", "FallsNet", "Research", "Test Fund",
             "Extramural", "Goh Mei Xin", None, None, None, 90000, None,
             "Applied (Oversight)"),
@@ -262,6 +262,10 @@ PRJS = [
     # ends on 1 Jan 2025: exported
     project("GRT-009", "Pressure mapping pilot", "PMap", "Research", "Test Fund", "Intramural",
             "Lee Hui Min", None, D(2024, 3, 1), D(2025, 1, 1), 30000, 30000, "Completed"),
+    # spans 2025 but Dropped: not exported
+    project("GRT-010", "Balance clinic evaluation", "Balance", "Research", "Test Fund",
+            "Intramural", "Goh Mei Xin", None, D(2024, 6, 1), D(2026, 5, 31), 40000, 40000,
+            "Dropped"),
 ]
 
 

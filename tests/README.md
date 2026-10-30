@@ -56,4 +56,4 @@ If the harness says the modules don't compile, run `python3 tests/find_compile_e
 
 ## Changing the fixtures
 
-Edit `fixtures/make_fixtures.py`, run `python3 tests/fixtures/make_fixtures.py`, and commit the regenerated `.xlsx` files with it. The Collection Workbook fixture copies the layout Export Staff Copy writes: a note in A1, headers on row 3 from column A, records from row 4, and a hidden Export ID as the last exported column.
+Edit `fixtures/make_fixtures.py`, run `python3 tests/fixtures/make_fixtures.py`, and commit the regenerated `.xlsx` files with it. The Collection Workbook fixture copies the layout Export Staff Copy writes: a note in A1, headers on row 3 from column A, records from row 4, and a hidden Export ID as the last exported column. It predates leaving No. out, so it still has No. columns, which is how the tests cover checking an older Collection Workbook.

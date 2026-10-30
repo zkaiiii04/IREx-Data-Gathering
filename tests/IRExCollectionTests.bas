@@ -12,6 +12,7 @@ Option Explicit
 
 Private Const GREEN As Long = 13561798      ' RGB(198, 239, 206)
 Private Const YELLOW As Long = 10284031     ' RGB(255, 235, 156)
+Private Const XL_CENTER As Long = -4108
 
 Private Const MEDIA_OUTLET As String = "Name of Media Published Source (For eg The Straits Times or online eg ChannelnewsAsia.com)"
 
@@ -59,17 +60,18 @@ Private Function TestNames() As Variant
         "Export_takes_Presentations_and_Media_Appearances_whose_date_falls_in_the_year", _
         "Export_takes_Talent_Developments_whose_Year_is_the_year", _
         "Export_takes_Education_Activities_by_Year_or_by_date_when_Year_is_empty", _
-        "Export_takes_Projects_live_during_the_year_and_Applied_ones_with_no_LOA", _
+        "Export_takes_Projects_live_during_the_year_but_not_Dropped_ones_or_ones_with_no_LOA", _
         "Export_keeps_every_Publications_column_but_the_four_JIF_columns", _
         "Export_keeps_columns_hidden_that_are_hidden_in_the_Main_Database", _
         "Export_keeps_only_the_columns_a_submitter_needs_on_Projects", _
         "Export_keeps_every_column_on_the_other_tabs", _
-        "Export_writes_No_as_plain_values", _
+        "Export_leaves_out_No_on_every_tab", _
         "Export_writes_a_hidden_unique_Export_ID_on_every_row", _
         "Export_keeps_text_that_looks_like_a_number_or_date_as_text", _
         "Export_puts_a_how_to_find_your_records_note_above_each_table", _
         "Export_carries_the_dropdown_lists_over_as_fixed_lists", _
         "Export_puts_the_rows_in_an_Excel_table", _
+        "Export_lays_each_tab_out_for_reading", _
         "Export_writes_an_ID_lookup_with_each_rows_tab_No_title_and_match_keys", _
         "Export_report_counts_the_rows_exported_per_tab", _
         "Export_report_lists_rows_whose_date_or_Year_cant_be_read", _
@@ -113,17 +115,18 @@ Private Sub Dispatch(ByVal name As String)
         Case "Export_takes_Presentations_and_Media_Appearances_whose_date_falls_in_the_year": Export_takes_Presentations_and_Media_Appearances_whose_date_falls_in_the_year
         Case "Export_takes_Talent_Developments_whose_Year_is_the_year": Export_takes_Talent_Developments_whose_Year_is_the_year
         Case "Export_takes_Education_Activities_by_Year_or_by_date_when_Year_is_empty": Export_takes_Education_Activities_by_Year_or_by_date_when_Year_is_empty
-        Case "Export_takes_Projects_live_during_the_year_and_Applied_ones_with_no_LOA": Export_takes_Projects_live_during_the_year_and_Applied_ones_with_no_LOA
+        Case "Export_takes_Projects_live_during_the_year_but_not_Dropped_ones_or_ones_with_no_LOA": Export_takes_Projects_live_during_the_year_but_not_Dropped_ones_or_ones_with_no_LOA
         Case "Export_keeps_every_Publications_column_but_the_four_JIF_columns": Export_keeps_every_Publications_column_but_the_four_JIF_columns
         Case "Export_keeps_columns_hidden_that_are_hidden_in_the_Main_Database": Export_keeps_columns_hidden_that_are_hidden_in_the_Main_Database
         Case "Export_keeps_only_the_columns_a_submitter_needs_on_Projects": Export_keeps_only_the_columns_a_submitter_needs_on_Projects
         Case "Export_keeps_every_column_on_the_other_tabs": Export_keeps_every_column_on_the_other_tabs
-        Case "Export_writes_No_as_plain_values": Export_writes_No_as_plain_values
+        Case "Export_leaves_out_No_on_every_tab": Export_leaves_out_No_on_every_tab
         Case "Export_writes_a_hidden_unique_Export_ID_on_every_row": Export_writes_a_hidden_unique_Export_ID_on_every_row
         Case "Export_keeps_text_that_looks_like_a_number_or_date_as_text": Export_keeps_text_that_looks_like_a_number_or_date_as_text
         Case "Export_puts_a_how_to_find_your_records_note_above_each_table": Export_puts_a_how_to_find_your_records_note_above_each_table
         Case "Export_carries_the_dropdown_lists_over_as_fixed_lists": Export_carries_the_dropdown_lists_over_as_fixed_lists
         Case "Export_puts_the_rows_in_an_Excel_table": Export_puts_the_rows_in_an_Excel_table
+        Case "Export_lays_each_tab_out_for_reading": Export_lays_each_tab_out_for_reading
         Case "Export_writes_an_ID_lookup_with_each_rows_tab_No_title_and_match_keys": Export_writes_an_ID_lookup_with_each_rows_tab_No_title_and_match_keys
         Case "Export_report_counts_the_rows_exported_per_tab": Export_report_counts_the_rows_exported_per_tab
         Case "Export_report_lists_rows_whose_date_or_Year_cant_be_read": Export_report_lists_rows_whose_date_or_Year_cant_be_read
@@ -215,7 +218,7 @@ Private Sub Export_writes_the_six_activity_tabs_to_a_workbook_named_for_the_year
     Dim cw As Object
     Set cw = OpenWorkbook(ExportFixture(2025))
     AssertEqual "IREX_Rehab_Data_Collection_CY2025.xlsx", Dir(SharedFolder() & "*.xlsx"), "file in the shared folder"
-    AssertEqual "Publications|Poster & Oral Presentation|Media|Talent Development|Education|Projects", SheetNames(cw), "tabs"
+    AssertEqual "Projects|Publications|Poster & Oral Presentation|Education|Media|Talent Development", SheetNames(cw), "tabs"
     If mInLibreOffice Then
         Skip "file format and macros"
     Else
@@ -264,18 +267,18 @@ Private Sub Export_takes_Education_Activities_by_Year_or_by_date_when_Year_is_em
 End Sub
 
 ' Live: LOA Start on or before 31 Dec and LOA End on or after 1 Jan, or no LOA End.
-Private Sub Export_takes_Projects_live_during_the_year_and_Applied_ones_with_no_LOA()
+' A project with no LOA Start (Applied ones too) or a Dropped status is left out.
+Private Sub Export_takes_Projects_live_during_the_year_but_not_Dropped_ones_or_ones_with_no_LOA()
     Dim cw As Object
     Set cw = OpenWorkbook(ExportFixture(2025))
-    AssertEqual "Robot-assisted gait study|Home exercise app|Community stroke registry|Exoskeleton feasibility|" & _
-        "Regional falls network|Pressure mapping pilot", _
+    AssertEqual "Robot-assisted gait study|Home exercise app|Community stroke registry|Pressure mapping pilot", _
         ColumnText(cw.Worksheets("Projects"), "Project Name"), "projects"
 End Sub
 
 Private Sub Export_keeps_every_Publications_column_but_the_four_JIF_columns()
     Dim cw As Object
     Set cw = OpenWorkbook(ExportFixture(2025))
-    AssertEqual Squash("No.|Title of Article|1st Author Name|TTSH Contributor|Status|Date of Publication|pmid|Journal Citation|" & _
+    AssertEqual Squash("Title of Article|1st Author Name|TTSH Contributor|Status|Date of Publication|pmid|Journal Citation|" & _
         "Associated Research/Innovation Project (If applicable)|Full Author Listing (Optional)|DOI|Category of Article|" & _
         "Other Remarks|Journal Name|Export ID"), HeaderList(cw.Worksheets("Publications")), "Publications headers"
 End Sub
@@ -296,17 +299,17 @@ Private Sub Export_keeps_only_the_columns_a_submitter_needs_on_Projects()
     AssertEqual Squash("Grant Ref No|Project Name|Category|Grant / Collaborator Partners|Grant Type|PI|Co-I/Collaborator|" & _
         "LOA Start Date|LOA End Date|Grant Amount|Grant Amt (Awarded to TTSH)|Status|Export ID"), _
         HeaderList(cw.Worksheets("Projects")), "Projects headers"
-    AssertEqual "500000|80000|250000|60000|90000|30000", ColumnText(cw.Worksheets("Projects"), "Grant Amount"), "Grant Amount"
+    AssertEqual "500000|80000|250000|30000", ColumnText(cw.Worksheets("Projects"), "Grant Amount"), "Grant Amount"
 End Sub
 
 Private Sub Export_keeps_every_column_on_the_other_tabs()
     Dim cw As Object
     Set cw = OpenWorkbook(ExportFixture(2025))
-    AssertEqual Squash("No.|Title of Presentation/Topic|Full Name|Status|Date of Presentation|Start Date of Event|End Date of Event|" & _
+    AssertEqual Squash("Title of Presentation/Topic|Full Name|Status|Date of Presentation|Start Date of Event|End Date of Event|" & _
         "Title of Related Research, Innovation Projects /Programmes|Name of Conference/ Symposium/ Seminar|Name of Organisation|" & _
         "Country where the conference/sympoisum/Seminar was held|Other Remarks|Export ID"), _
         HeaderList(cw.Worksheets("Poster & Oral Presentation")), "Presentations"
-    AssertEqual Squash("No.|Full name|Platform of Media|Media Publishing Date|" & _
+    AssertEqual Squash("Full name|Platform of Media|Media Publishing Date|" & _
         "Title of Media Published & Description (Briefly provide the description and or purpose of the published media)|" & _
         "Name of Media Published Source (For eg The Straits Times or online eg ChannelnewsAsia.com)|" & _
         "Website link to media/ Source (If applicable)|Associated Project Title (If applicable)|Other Remarks|Export ID"), _
@@ -321,14 +324,13 @@ Private Sub Export_keeps_every_column_on_the_other_tabs()
         HeaderList(cw.Worksheets("Education")), "Education"
 End Sub
 
-' No. is a formula in the Main Database; the export writes the numbers it shows.
-Private Sub Export_writes_No_as_plain_values()
-    Dim cw As Object
+' Rehab Staff don't need the Main Database's row numbers; the ID lookup keeps them for the check.
+Private Sub Export_leaves_out_No_on_every_tab()
+    Dim cw As Object, ws As Object
     Set cw = OpenWorkbook(ExportFixture(2025))
-    AssertEqual "1|2|3|5", ColumnText(cw.Worksheets("Media"), "No."), "Media No."
-    AssertEqual "1|3|4|5|6", ColumnText(cw.Worksheets("Publications"), "No."), "Publications No."
-    AssertEqual "1|2|4", ColumnText(cw.Worksheets("Poster & Oral Presentation"), "No."), "Presentations No."
-    AssertEqual False, HeaderCell(cw.Worksheets("Media"), "No.").Offset(1, 0).HasFormula, "Media No. is not a formula"
+    For Each ws In cw.Worksheets
+        AssertTrue HeaderCell(ws, "No.") Is Nothing, ws.Name & ": no No. column"
+    Next ws
 End Sub
 
 Private Sub Export_writes_a_hidden_unique_Export_ID_on_every_row()
@@ -339,7 +341,7 @@ Private Sub Export_writes_a_hidden_unique_Export_ID_on_every_row()
     AssertEqual "MED-0001|MED-0002|MED-0003|MED-0004", ColumnText(cw.Worksheets("Media"), "Export ID"), "Media"
     AssertEqual "TD-0001|TD-0002|TD-0003", ColumnText(cw.Worksheets("Talent Development"), "Export ID"), "Talent Development"
     AssertEqual "EDU-0001|EDU-0002|EDU-0003|EDU-0004|EDU-0005|EDU-0006", ColumnText(cw.Worksheets("Education"), "Export ID"), "Education"
-    AssertEqual "PRJ-0001|PRJ-0002|PRJ-0003|PRJ-0004|PRJ-0005|PRJ-0006", ColumnText(cw.Worksheets("Projects"), "Export ID"), "Projects"
+    AssertEqual "PRJ-0001|PRJ-0002|PRJ-0003|PRJ-0004", ColumnText(cw.Worksheets("Projects"), "Export ID"), "Projects"
 End Sub
 
 Private Sub Export_keeps_text_that_looks_like_a_number_or_date_as_text()
@@ -402,6 +404,31 @@ Private Sub Export_puts_the_rows_in_an_Excel_table()
     Next ws
 End Sub
 
+' Large note across the table; bold header row; centred, wrapped text in roomy
+' rows; no striped rows.
+Private Sub Export_lays_each_tab_out_for_reading()
+    Dim cw As Object, ws As Object, h As Object, idCol As Long
+    Set cw = OpenWorkbook(ExportFixture(2025))
+    For Each ws In cw.Worksheets
+        idCol = HeaderCell(ws, "Export ID").Column
+        AssertEqual idCol - 1, ws.Range("A1").MergeArea.Columns.Count, ws.Name & ": note spans the table"
+        AssertTrue ws.Range("A1").Font.Size >= 14, ws.Name & ": note in large type"
+        AssertTrue ws.Range("A1").WrapText, ws.Name & ": note wraps"
+        Set h = ws.Cells(3, 1)
+        AssertEqual True, h.Font.Bold, ws.Name & ": header bold"
+        AssertTrue h.Font.Size > ws.Cells(4, 1).Font.Size, ws.Name & ": header larger than the rows"
+        AssertEqual XL_CENTER, h.HorizontalAlignment, ws.Name & ": header centred"
+        AssertEqual XL_CENTER, h.VerticalAlignment, ws.Name & ": header in the middle of the cell"
+        AssertEqual XL_CENTER, ws.Cells(4, idCol - 1).HorizontalAlignment, ws.Name & ": rows centred"
+        AssertEqual XL_CENTER, ws.Cells(4, idCol - 1).VerticalAlignment, ws.Name & ": rows in the middle of the cell"
+        AssertTrue ws.Cells(4, 1).WrapText, ws.Name & ": rows wrap"
+        AssertTrue ws.Cells(20, 1).WrapText, ws.Name & ": rows for new entries wrap"
+        AssertTrue ws.Rows(4).RowHeight >= 24, ws.Name & ": roomy rows"
+        If Not mInLibreOffice Then AssertEqual False, ws.ListObjects(1).ShowTableStyleRowStripes, ws.Name & ": no striped rows"
+    Next ws
+    If mInLibreOffice Then Skip "striped rows (LibreOffice has no ListObjects)"
+End Sub
+
 ' Lookup rows read "tab|No.|title|Key 1|Key 2". The keys per tab: Publications
 ' DOI and title; Presentations title; Media title and outlet; Talent
 ' Development name and award; Education title and Year; Projects Grant Ref No
@@ -414,7 +441,7 @@ Private Sub Export_writes_an_ID_lookup_with_each_rows_tab_No_title_and_match_key
     Set ws = lk.Worksheets(1)
     AssertEqual "export id|tab|no.|title|key 1|key 2", Squash(Join(Array(ws.Range("A1").Value, ws.Range("B1").Value, _
         ws.Range("C1").Value, ws.Range("D1").Value, ws.Range("E1").Value, ws.Range("F1").Value), "|")), "headers"
-    AssertEqual 27, LastFilledRow(ws, 1) - 1, "one row per exported record"
+    AssertEqual 25, LastFilledRow(ws, 1) - 1, "one row per exported record"
     AssertEqual "Publications|1|Robotic gait training after stroke: a pilot study|10.1000/test.0001|Robotic gait training after stroke: a pilot study", _
         LookupRow(ws, "PUB-0001"), "PUB-0001"
     AssertEqual "Publications|3|Spasticity outcomes after botulinum toxin||Spasticity outcomes after botulinum toxin", LookupRow(ws, "PUB-0002"), "PUB-0002"
@@ -424,7 +451,7 @@ Private Sub Export_writes_an_ID_lookup_with_each_rows_tab_No_title_and_match_key
     AssertEqual "Talent Development||Test Fellowship Award|Tan Wei Ling|Test Fellowship Award", LookupRow(ws, "TD-0001"), "TD-0001"
     AssertEqual "Education||Spasticity management workshop|Spasticity management workshop|2025", LookupRow(ws, "EDU-0001"), "EDU-0001"
     AssertEqual "Education||Pressure injury prevention webinar|Pressure injury prevention webinar|", LookupRow(ws, "EDU-0002"), "EDU-0002"
-    AssertEqual "Projects||Exoskeleton feasibility||Exoskeleton feasibility", LookupRow(ws, "PRJ-0004"), "PRJ-0004"
+    AssertEqual "Projects||Pressure mapping pilot|GRT-009|Pressure mapping pilot", LookupRow(ws, "PRJ-0004"), "PRJ-0004"
     AssertEqual "Projects||Robot-assisted gait study|GRT-001|Robot-assisted gait study", LookupRow(ws, "PRJ-0001"), "PRJ-0001"
 End Sub
 
@@ -437,7 +464,7 @@ Private Sub Export_report_counts_the_rows_exported_per_tab()
     AssertContains report, "Exported|Media|||4", "Media"
     AssertContains report, "Exported|Talent Development|||3", "Talent Development"
     AssertContains report, "Exported|Education|||6", "Education"
-    AssertContains report, "Exported|Projects|||6", "Projects"
+    AssertContains report, "Exported|Projects|||4", "Projects"
 End Sub
 
 ' Lines read "Unreadable date|tab|Main Database row|column|value".
