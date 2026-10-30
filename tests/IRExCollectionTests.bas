@@ -13,6 +13,8 @@ Option Explicit
 Private Const GREEN As Long = 13561798      ' RGB(198, 239, 206)
 Private Const YELLOW As Long = 10284031     ' RGB(255, 235, 156)
 
+Private Const MEDIA_OUTLET As String = "Name of Media Published Source (For eg The Straits Times or online eg ChannelnewsAsia.com)"
+
 Private mFixtures As String
 Private mOut As String
 Private mInLibreOffice As Boolean
@@ -73,7 +75,9 @@ Private Function TestNames() As Variant
         "Export_report_lists_rows_whose_date_or_Year_cant_be_read", _
         "Export_report_lists_Main_Database_rows_with_no_No", _
         "Export_replaces_an_existing_Collection_Workbook_only_when_told_to", _
-        "Export_leaves_the_Main_Database_as_it_was")
+        "Export_leaves_the_Main_Database_as_it_was", _
+        "Check_saves_a_highlighted_copy_and_leaves_the_shared_file_alone", _
+        "Check_marks_rows_with_no_Export_ID_and_no_match_as_New_in_green")
 End Function
 
 Private Sub Setup(ByVal fixtures As String, ByVal outDir As String, ByVal inLibreOffice As Boolean)
@@ -111,6 +115,8 @@ Private Sub Dispatch(ByVal name As String)
         Case "Export_report_lists_Main_Database_rows_with_no_No": Export_report_lists_Main_Database_rows_with_no_No
         Case "Export_replaces_an_existing_Collection_Workbook_only_when_told_to": Export_replaces_an_existing_Collection_Workbook_only_when_told_to
         Case "Export_leaves_the_Main_Database_as_it_was": Export_leaves_the_Main_Database_as_it_was
+        Case "Check_saves_a_highlighted_copy_and_leaves_the_shared_file_alone": Check_saves_a_highlighted_copy_and_leaves_the_shared_file_alone
+        Case "Check_marks_rows_with_no_Export_ID_and_no_match_as_New_in_green": Check_marks_rows_with_no_Export_ID_and_no_match_as_New_in_green
         Case Else: Fail "no such test"
     End Select
 End Sub
@@ -449,6 +455,48 @@ Private Sub Export_leaves_the_Main_Database_as_it_was()
 End Sub
 
 ' ---------------------------------------------------------------------------
+' Check Collection Workbook
+'
+' The fixture in tests\fixtures\check is a Collection Workbook exported for 2025
+' (with its ID lookup) that Rehab Staff have since edited; make_fixtures.py
+' describes each planted case. The Main Database fixture is "today's".
+' ---------------------------------------------------------------------------
+
+Private Sub Check_saves_a_highlighted_copy_and_leaves_the_shared_file_alone()
+    Dim sharedPath As String, copyPath As String, wb As Object
+    copyPath = CheckFixture()
+    sharedPath = CheckSharedFolder() & "IREX_Rehab_Data_Collection_CY2025.xlsx"
+    AssertEqual CheckAdminFolder() & "IREX_Rehab_Data_Collection_CY2025 " & ChrW(8211) & " checked " & Format(Date, "yyyy-mm-dd") & ".xlsx", _
+        copyPath, "returned path"
+    AssertEqual "IREX_Rehab_Data_Collection_CY2025 " & ChrW(8211) & " checked " & Format(Date, "yyyy-mm-dd") & ".xlsx", _
+        Dir(CheckAdminFolder() & "*checked*.xlsx"), "file in the admin folder"
+    AssertEqual FileLen(mFixtures & "check" & Application.PathSeparator & "IREX_Rehab_Data_Collection_CY2025.xlsx"), FileLen(sharedPath), "shared file unchanged"
+    Set wb = OpenWorkbook(copyPath)
+    AssertEqual "Summary|Publications|Poster & Oral Presentation|Media|Talent Development|Education|Projects", SheetNames(wb), "tabs"
+End Sub
+
+' One new row inside the table, one typed below it after a gap of blank rows.
+' A new outlet for a story already recorded is a new Media Appearance.
+Private Sub Check_marks_rows_with_no_Export_ID_and_no_match_as_New_in_green()
+    Dim wb As Object, ws As Object, r As Long
+    Set wb = OpenWorkbook(CheckFixture())
+    Set ws = wb.Worksheets("Publications")
+    r = RowOf(ws, "Title of Article", "Hand therapy outcomes registry")
+    AssertEqual GREEN, FillOf(ws, r, "Title of Article"), "row inside the table: title green"
+    AssertEqual GREEN, FillOf(ws, r, "Journal Name"), "row inside the table: whole row green"
+    AssertEqual "New", NoteOf(ws, r), "row inside the table: note"
+    r = RowOf(ws, "Title of Article", "Prosthetic training survey")
+    AssertEqual GREEN, FillOf(ws, r, "Status"), "row below the table: green"
+    AssertEqual "New", NoteOf(ws, r), "row below the table: note"
+    Set ws = wb.Worksheets("Media")
+    r = RowOf(ws, MEDIA_OUTLET, "Test News Online")
+    AssertEqual GREEN, FillOf(ws, r, MEDIA_OUTLET), "new outlet for a recorded story"
+    Set ws = wb.Worksheets("Education")
+    r = RowOf(ws, "Title of Course/Educational Materials/Educational Events/Outreach", "Falls prevention webinar")
+    AssertEqual GREEN, FillOf(ws, r, "Year"), "new Education Activity"
+End Sub
+
+' ---------------------------------------------------------------------------
 ' Helpers: running the macros
 ' ---------------------------------------------------------------------------
 
@@ -468,6 +516,29 @@ End Function
 
 Private Function AdminFolder() As String
     AdminFolder = mOut & "export" & Application.PathSeparator & "admin" & Application.PathSeparator
+End Function
+
+' Copies the fixture Collection Workbook to a fresh shared folder, runs Check
+' Collection Workbook on it with the fixture lookup, and returns the path of
+' the highlighted copy.
+Private Function CheckFixture() As String
+    Dim folder As String, sep As String, name As String
+    sep = Application.PathSeparator
+    folder = FreshFolder("check")
+    EnsureFolder folder & "shared"
+    EnsureFolder folder & "admin"
+    name = "IREX_Rehab_Data_Collection_CY2025"
+    FileCopy mFixtures & "check" & sep & name & ".xlsx", CheckSharedFolder() & name & ".xlsx"
+    CheckFixture = RunCheckCollectionWorkbook(CheckSharedFolder() & name & ".xlsx", _
+        mFixtures & "check" & sep & name & " " & ChrW(8211) & " ID lookup.xlsx", OpenMainDatabase(), CheckAdminFolder())
+End Function
+
+Private Function CheckSharedFolder() As String
+    CheckSharedFolder = mOut & "check" & Application.PathSeparator & "shared" & Application.PathSeparator
+End Function
+
+Private Function CheckAdminFolder() As String
+    CheckAdminFolder = mOut & "check" & Application.PathSeparator & "admin" & Application.PathSeparator
 End Function
 
 Private Function OpenMainDatabase() As Object
@@ -626,6 +697,49 @@ End Function
 
 Private Function CountOf(ByVal text As String, ByVal part As String) As Long
     CountOf = (Len(text) - Len(Replace(text, part, ""))) / Len(part)
+End Function
+
+' The first row under a column's header whose value matches (ignoring case
+' and spacing), or 0.
+Private Function RowOf(ByVal ws As Object, ByVal header As String, ByVal value As Variant) As Long
+    Dim h As Object, r As Long
+    Set h = HeaderCell(ws, header)
+    If h Is Nothing Then Exit Function
+    For r = h.Row + 1 To ws.UsedRange.Row + ws.UsedRange.Rows.Count - 1
+        If Squash(ws.Cells(r, h.Column).Value) = Squash(value) Then
+            RowOf = r
+            Exit Function
+        End If
+    Next r
+End Function
+
+Private Function CellOf(ByVal ws As Object, ByVal r As Long, ByVal header As String) As Object
+    Dim h As Object
+    Set h = HeaderCell(ws, header)
+    If h Is Nothing Or r = 0 Then
+        Fail "no cell for " & header & " on row " & r & " of " & ws.Name
+        Set CellOf = ws.Cells(ws.Rows.Count, 1)
+    Else
+        Set CellOf = ws.Cells(r, h.Column)
+    End If
+End Function
+
+Private Function FillOf(ByVal ws As Object, ByVal r As Long, ByVal header As String) As Long
+    FillOf = CellOf(ws, r, header).Interior.Color
+End Function
+
+Private Function IsBold(ByVal ws As Object, ByVal r As Long, ByVal header As String) As Boolean
+    IsBold = CellOf(ws, r, header).Font.Bold
+End Function
+
+Private Function CommentOf(ByVal ws As Object, ByVal r As Long, ByVal header As String) As String
+    Dim c As Object
+    Set c = CellOf(ws, r, header)
+    If Not c.Comment Is Nothing Then CommentOf = c.Comment.Text
+End Function
+
+Private Function NoteOf(ByVal ws As Object, ByVal r As Long) As String
+    NoteOf = Show(CellOf(ws, r, "Check note").Value)
 End Function
 
 ' The value n rows under a column's header.

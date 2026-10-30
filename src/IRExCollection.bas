@@ -19,6 +19,17 @@ Private Const MAX_COLUMN_WIDTH As Double = 60
 Private Const EXPORT_ID_HEADER As String = "Export ID"
 Private Const ROOM_FOR_NEW_ROWS As Long = 500   ' blank rows under the export that get the dropdowns
 Private Const XL_VALIDATE_LIST As Long = 3
+Private Const CHECK_NOTE_HEADER As String = "Check note"
+Private Const GREEN As Long = 13561798         ' RGB(198, 239, 206): new
+Private Const YELLOW As Long = 10284031        ' RGB(255, 235, 156): changed
+
+' Summary counts, one per tab.
+Private Const COUNT_NEW As Long = 1
+Private Const COUNT_CHANGED As Long = 2
+Private Const COUNT_ALREADY As Long = 3
+Private Const COUNT_DELETED As Long = 4
+Private Const COUNT_CANT_FIND As Long = 5
+Private Const COUNT_EXTRA As Long = 6
 
 ' How a tab picks the records of a year.
 Private Const RULE_DATE As Long = 1             ' its date falls in the year
@@ -49,6 +60,8 @@ Private Type TabSpec
     TitleHeader As String
     Key1Header As String        ' match key fields, kept in the ID lookup
     Key2Header As String
+    Keys As String              ' match keys tried in order, ";"-separated; each a "+"-joined
+                                ' list of fields: 0 = No., 1 = Key 1, 2 = Key 2
 End Type
 
 ' A block of records read from a sheet: one header row and the filled rows under it.
@@ -71,6 +84,12 @@ Private mLookup() As Variant
 Private mLookupCount As Long
 Private mReport() As Variant
 Private mReportCount As Long
+
+' The ID lookup, while checking.
+Private mIds() As Variant           ' (row, 0 to 5): Export ID, tab, No., title, Key 1, Key 2
+Private mIdCount As Long
+Private mIdSeen() As Boolean
+Private mCounts(1 To 6, 1 To 6) As Long     ' (tab, COUNT_*)
 
 ' ===========================================================================
 ' Export Staff Copy
@@ -321,6 +340,331 @@ Private Function PickByDate(ByVal v As Variant, ByVal calendarYear As Long) As L
 End Function
 
 ' ===========================================================================
+' Check Collection Workbook
+' ===========================================================================
+
+' Compares the Collection Workbook at collectionPath with the Main Database,
+' using the ID lookup written when it was exported, and saves a highlighted
+' copy in adminFolder. Returns the copy's path. The Collection Workbook itself
+' is never opened: the copy is made first and only the copy is marked, so
+' AutoSave on a synced SharePoint file can't carry the marks back.
+Public Function RunCheckCollectionWorkbook(ByVal collectionPath As String, ByVal lookupPath As String, ByVal mainDatabase As Object, ByVal adminFolder As String) As String
+    Dim cw As Object, copyPath As String, i As Long, j As Long
+    LoadTabs
+    ReadLookup lookupPath
+    mReportCount = 0
+    For i = 1 To 6
+        For j = 1 To 6
+            mCounts(i, j) = 0
+        Next j
+    Next i
+
+    copyPath = adminFolder & BaseName(collectionPath) & " " & ChrW(8211) & " checked " & Format(Date, "yyyy-mm-dd") & ".xlsx"
+    CopyFile collectionPath, copyPath
+    Set cw = Workbooks.Open(copyPath)
+    For i = 1 To 6
+        CheckTab cw, mainDatabase, i
+    Next i
+    ListDeleted
+    WriteSummary cw, BaseName(collectionPath)
+    SaveInPlace cw, copyPath
+    RunCheckCollectionWorkbook = copyPath
+End Function
+
+Private Sub CheckTab(ByVal cw As Object, ByVal mainDatabase As Object, ByVal t As Long)
+    Dim spec As TabSpec, ws As Object, md As SheetRows, rows As SheetRows
+    spec = mTabs(t)
+    On Error Resume Next
+    Set ws = cw.Worksheets(spec.Title)
+    On Error GoTo 0
+    If ws Is Nothing Then
+        ReportLine "Tab missing", spec.Title, "", "", ""
+        Exit Sub
+    End If
+    md = ReadMainSheet(mainDatabase, spec)
+    If Not md.Found Then
+        ReportLine "Sheet or table not found in the Main Database", spec.Title, "", "", spec.SheetName
+        Exit Sub
+    End If
+    rows = ReadCollectionSheet(ws)
+    If Not rows.Found Then
+        ReportLine "No Export ID column", spec.Title, "", "", ""
+        Exit Sub
+    End If
+
+    ' Which Main Database column each Collection Workbook column is compared with (0: none).
+    Dim exported() As Long, n As Long, mdCol() As Long, c As Long, k As Long, idCol As Long
+    n = ExportColumns(spec, md, exported)
+    ReDim mdCol(1 To rows.ColCount)
+    idCol = FindColumn(rows, Norm(EXPORT_ID_HEADER))
+    For c = 1 To rows.ColCount
+        For k = 1 To n
+            If md.Keys(exported(k)) = rows.Keys(c) Then mdCol(c) = exported(k)
+        Next k
+        If mdCol(c) = 0 And c <> idCol And rows.Keys(c) <> "" And rows.Keys(c) <> Norm(CHECK_NOTE_HEADER) Then
+            mCounts(t, COUNT_EXTRA) = mCounts(t, COUNT_EXTRA) + 1
+            ReportLine "Extra column", spec.Title, "", "", rows.Headers(c)
+        End If
+    Next c
+
+    Dim noteCol As Long, r As Long, sheetRow As Long, id As String, li As Long, found As Long, diffs As Long
+    noteCol = LastUsedColumn(ws) + 1
+    ws.Cells(rows.HeaderRow, noteCol).Value = CHECK_NOTE_HEADER
+    ws.Cells(rows.HeaderRow, noteCol).Font.Bold = True
+    For r = 1 To rows.RowCount
+        sheetRow = rows.RowNums(r)
+        ListValuesOutside ws, spec, rows, r
+        If IsRecord(rows, r, mdCol, idCol) Then
+            id = Trim(CellText(rows.Values(r, idCol)))
+            If id <> "" Then
+                li = LookupIndex(id)
+                found = 0
+                If li > 0 Then
+                    mIdSeen(li) = True
+                    If mIds(li, 1) = spec.Title Then found = FindRecord(md, spec, mIds(li, 2), mIds(li, 4), mIds(li, 5))
+                End If
+                If found = 0 Then
+                    Mark ws, rows, r, mdCol, noteCol, 0, "Can't find in Main Database"
+                    Count t, COUNT_CANT_FIND, "Can't find in Main Database", sheetRow, id, CellText(LookupTitle(li))
+                Else
+                    diffs = MarkDifferences(ws, rows, r, mdCol, md, found)
+                    If diffs > 0 Then
+                        Mark ws, rows, r, mdCol, noteCol, YELLOW, "Changed: " & RecordName(md, spec, found)
+                        Count t, COUNT_CHANGED, "Changed", sheetRow, id, RecordName(md, spec, found)
+                    End If
+                End If
+            Else
+                found = FindRecord(md, spec, RowField(rows, r, spec.NoHeader), RowField(rows, r, spec.Key1Header), RowField(rows, r, spec.Key2Header))
+                If found = 0 Then
+                    Mark ws, rows, r, mdCol, noteCol, GREEN, "New"
+                    Count t, COUNT_NEW, "New", sheetRow, "", CellText(RowField(rows, r, spec.TitleHeader))
+                Else
+                    diffs = MarkDifferences(ws, rows, r, mdCol, md, found)
+                    If diffs > 0 Then
+                        Mark ws, rows, r, mdCol, noteCol, YELLOW, "Already recorded as " & RecordName(md, spec, found)
+                    Else
+                        Mark ws, rows, r, mdCol, noteCol, 0, "Already recorded as " & RecordName(md, spec, found)
+                    End If
+                    Count t, COUNT_ALREADY, "Already recorded", sheetRow, "", RecordName(md, spec, found)
+                End If
+            End If
+        End If
+    Next r
+End Sub
+
+' A row is a record when it has an Export ID or a value in a compared column.
+Private Function IsRecord(ByRef rows As SheetRows, ByVal r As Long, ByRef mdCol() As Long, ByVal idCol As Long) As Boolean
+    Dim c As Long
+    For c = 1 To rows.ColCount
+        If mdCol(c) > 0 Or c = idCol Then
+            If Not IsBlank(rows.Values(r, c)) Then
+                IsRecord = True
+                Exit Function
+            End If
+        End If
+    Next c
+End Function
+
+Private Sub ListValuesOutside(ByVal ws As Object, ByRef spec As TabSpec, ByRef rows As SheetRows, ByVal r As Long)
+    Dim c As Long
+    For c = 1 To rows.ColCount
+        If rows.Keys(c) = "" And Not IsBlank(rows.Values(r, c)) Then
+            ReportLine "Value outside the exported columns", spec.Title, rows.RowNums(r), _
+                ws.Cells(rows.RowNums(r), rows.Cols(c)).Address(False, False), CellText(rows.Values(r, c))
+        End If
+    Next c
+End Sub
+
+' Bolds each compared cell that differs from the Main Database record and puts
+' the Main Database value in a comment on it. Returns how many differ.
+Private Function MarkDifferences(ByVal ws As Object, ByRef rows As SheetRows, ByVal r As Long, ByRef mdCol() As Long, ByRef md As SheetRows, ByVal found As Long) As Long
+    Dim c As Long, cell As Object
+    For c = 1 To rows.ColCount
+        If mdCol(c) > 0 Then
+            If Not SameValue(rows.Values(r, c), md.Values(found, mdCol(c))) Then
+                Set cell = ws.Cells(rows.RowNums(r), rows.Cols(c))
+                cell.Font.Bold = True
+                cell.ClearComments
+                cell.AddComment "Main Database: " & ShowValue(md.Values(found, mdCol(c)))
+                MarkDifferences = MarkDifferences + 1
+            End If
+        End If
+    Next c
+End Function
+
+' Fills a row's compared cells (unless fill is 0) and writes its note.
+Private Sub Mark(ByVal ws As Object, ByRef rows As SheetRows, ByVal r As Long, ByRef mdCol() As Long, ByVal noteCol As Long, ByVal fill As Long, ByVal note As String)
+    Dim c As Long
+    If fill <> 0 Then
+        For c = 1 To rows.ColCount
+            If mdCol(c) > 0 Then ws.Cells(rows.RowNums(r), rows.Cols(c)).Interior.Color = fill
+        Next c
+    End If
+    WriteValue ws.Cells(rows.RowNums(r), noteCol), note
+End Sub
+
+Private Sub Count(ByVal t As Long, ByVal what As Long, ByVal entry As String, ByVal sheetRow As Variant, ByVal id As String, ByVal detail As String)
+    mCounts(t, what) = mCounts(t, what) + 1
+    ReportLine entry, mTabs(t).Title, sheetRow, id, detail
+End Sub
+
+' "No. 6, <title>", or the title alone when the record has no No.
+Private Function RecordName(ByRef md As SheetRows, ByRef spec As TabSpec, ByVal found As Long) As String
+    Dim no As Variant
+    no = ColumnValue(md, found, spec.NoHeader)
+    RecordName = CellText(ColumnValue(md, found, spec.TitleHeader))
+    If Not IsBlank(no) Then RecordName = "No. " & CellText(no) & ", " & RecordName
+End Function
+
+Private Function RowField(ByRef rows As SheetRows, ByVal r As Long, ByVal pattern As String) As Variant
+    RowField = ColumnValue(rows, r, pattern)
+End Function
+
+' The Main Database record a set of match key values points to: the first key,
+' in the tab's order, that finds exactly one record. A key is skipped when its
+' first field is empty. Returns 0 if no key finds exactly one.
+Private Function FindRecord(ByRef md As SheetRows, ByRef spec As TabSpec, ByVal v0 As Variant, ByVal v1 As Variant, ByVal v2 As Variant) As Long
+    Dim key As Variant, fields As Variant, values(0 To 2) As Variant, headers(0 To 2) As String
+    Dim cols() As Long, f As Long, r As Long, hits As Long, hit As Long, ok As Boolean, usable As Boolean
+    values(0) = v0: values(1) = v1: values(2) = v2
+    headers(0) = spec.NoHeader: headers(1) = spec.Key1Header: headers(2) = spec.Key2Header
+    For Each key In Split(spec.Keys, ";")
+        fields = Split(key, "+")
+        ReDim cols(0 To UBound(fields))
+        usable = Not IsBlank(values(CLng(fields(0))))
+        For f = 0 To UBound(fields)
+            cols(f) = 0
+            If headers(CLng(fields(f))) <> "" Then cols(f) = FindColumn(md, headers(CLng(fields(f))))
+            If cols(f) = 0 Then usable = False
+        Next f
+        If usable Then
+            hits = 0
+            For r = 1 To md.RowCount
+                ok = True
+                For f = 0 To UBound(fields)
+                    If Not SameValue(md.Values(r, cols(f)), values(CLng(fields(f)))) Then
+                        ok = False
+                        Exit For
+                    End If
+                Next f
+                If ok Then
+                    hits = hits + 1
+                    hit = r
+                End If
+            Next r
+            If hits = 1 Then
+                FindRecord = hit
+                Exit Function
+            End If
+        End If
+    Next key
+End Function
+
+Private Sub ListDeleted()
+    Dim i As Long, t As Long
+    For i = 1 To mIdCount
+        If Not mIdSeen(i) Then
+            For t = 1 To 6
+                If mTabs(t).Title = mIds(i, 1) Then
+                    Count t, COUNT_DELETED, "Deleted", "", CStr(mIds(i, 0)), CellText(mIds(i, 3))
+                End If
+            Next t
+        End If
+    Next i
+End Sub
+
+Private Sub WriteSummary(ByVal cw As Object, ByVal name As String)
+    Dim ws As Object, t As Long, k As Long, r As Long, c As Long, entry As Variant
+    Set ws = cw.Worksheets.Add(Before:=cw.Worksheets(1))
+    ws.Name = "Summary"
+    ws.Range("A1").Value = "Check of " & name & " against the Main Database, " & Format(Now, "d mmm yyyy hh:mm")
+    ws.Range("A1").Font.Bold = True
+    ws.Range("A3:G3").Value = Array("Tab", "New", "Changed", "Already recorded", "Deleted", "Can't find in Main Database", "Extra columns")
+    ws.Range("A3:G3").Font.Bold = True
+    For t = 1 To 6
+        ws.Cells(3 + t, 1).Value = mTabs(t).Title
+        For k = 1 To 6
+            ws.Cells(3 + t, 1 + k).Value = mCounts(t, k)
+        Next k
+    Next t
+    ws.Range("A11").Value = "Details"
+    ws.Range("A11").Font.Bold = True
+    ws.Range("A12:E12").Value = Array("What", "Tab", "Row", "Export ID / cell", "Detail")
+    ws.Range("A12:E12").Font.Bold = True
+    For r = 1 To mReportCount
+        entry = mReport(r)
+        For c = 0 To 4
+            WriteValue ws.Cells(12 + r, c + 1), entry(c)
+        Next c
+    Next r
+    ws.Columns("A:G").ColumnWidth = 20
+    ws.Columns("E").ColumnWidth = 60
+    ws.Activate
+End Sub
+
+Private Sub ReadLookup(ByVal lookupPath As String)
+    Dim wb As Object, ws As Object, last As Long, r As Long, c As Long
+    Set wb = Workbooks.Open(lookupPath, ReadOnly:=True)
+    Set ws = wb.Worksheets(1)
+    last = ws.Cells(ws.Rows.Count, 1).End(XL_UP).Row
+    mIdCount = Application.WorksheetFunction.Max(last - 1, 0)
+    Dim ids() As Variant, seen() As Boolean
+    ReDim ids(1 To Application.WorksheetFunction.Max(mIdCount, 1), 0 To 5)
+    ReDim seen(1 To Application.WorksheetFunction.Max(mIdCount, 1))
+    For r = 1 To mIdCount
+        For c = 0 To 5
+            ids(r, c) = ws.Cells(r + 1, c + 1).Value
+        Next c
+        ids(r, 0) = Trim(CellText(ids(r, 0)))
+        ids(r, 1) = CellText(ids(r, 1))
+    Next r
+    mIds = ids
+    mIdSeen = seen
+    wb.Close False
+End Sub
+
+Private Function LookupIndex(ByVal id As String) As Long
+    Dim i As Long
+    For i = 1 To mIdCount
+        If StrComp(mIds(i, 0), id, vbTextCompare) = 0 Then
+            LookupIndex = i
+            Exit Function
+        End If
+    Next i
+End Function
+
+Private Function LookupTitle(ByVal li As Long) As Variant
+    If li > 0 Then LookupTitle = mIds(li, 3)
+End Function
+
+' Reads a Collection Workbook tab: the header row is the one holding Export ID,
+' and every column up to the last one used is read, headed or not.
+Private Function ReadCollectionSheet(ByVal ws As Object) As SheetRows
+    Dim headerRow As Long, firstCol As Long, lastCol As Long
+    If Not ScanHeader(ws, Norm(EXPORT_ID_HEADER), headerRow, firstCol, lastCol) Then Exit Function
+    ReadCollectionSheet = ReadBlock(ws, headerRow, 1, LastUsedColumn(ws))
+End Function
+
+' Copies a file, or saves a copy of it if it's open in Excel (FileCopy can't
+' read a file Excel has open).
+Private Sub CopyFile(ByVal fromPath As String, ByVal toPath As String)
+    Dim wb As Object
+    If FileExists(toPath) Then Kill toPath
+    On Error Resume Next
+    FileCopy fromPath, toPath
+    If Err.Number = 0 Then Exit Sub
+    Err.Clear
+    For Each wb In Workbooks
+        If StrComp(wb.FullName, fromPath, vbTextCompare) = 0 Then
+            wb.SaveCopyAs toPath
+            Exit Sub
+        End If
+    Next wb
+    On Error GoTo 0
+    Err.Raise vbObjectError + 1, , "Can't copy " & fromPath & ". Close it, or pick a downloaded copy, and run the check again."
+End Sub
+
+' ===========================================================================
 ' Tabs
 ' ===========================================================================
 
@@ -331,6 +675,7 @@ Private Sub LoadTabs()
         .Drop = "journal category & jif percentile listing*|jif percentile*"
         .Rule = RULE_DATE: .DateHeader = "date of publication"
         .NoHeader = "no.": .TitleHeader = "title of article": .Key1Header = "doi": .Key2Header = "title of article"
+        .Keys = "0;1;2"
     End With
     With mTabs(2)
         .Title = "Poster & Oral Presentation": .NameColumn = "Full Name": .Prefix = "PRES"
@@ -338,24 +683,28 @@ Private Sub LoadTabs()
         .Anchor = "title of presentation/topic"
         .Rule = RULE_DATE: .DateHeader = "date of presentation"
         .NoHeader = "no.": .TitleHeader = "title of presentation/topic": .Key1Header = "title of presentation/topic": .Key2Header = ""
+        .Keys = "0;1"
     End With
     With mTabs(3)
         .Title = "Media": .NameColumn = "Full name": .Prefix = "MED"
         .SheetName = "DB_Media": .TableName = "": .Anchor = "platform of media"
         .Rule = RULE_DATE: .DateHeader = "media publishing date"
         .NoHeader = "no.": .TitleHeader = "title of media published*": .Key1Header = "title of media published*": .Key2Header = "name of media published source*"
+        .Keys = "1+2"
     End With
     With mTabs(4)
         .Title = "Talent Development": .NameColumn = "Name": .Prefix = "TD"
         .SheetName = "DB_Talent Develop": .TableName = "tbl_TalentDevelop": .Anchor = "award description"
         .Rule = RULE_YEAR: .YearHeader = "year"
         .NoHeader = "": .TitleHeader = "award description": .Key1Header = "name": .Key2Header = "award description"
+        .Keys = "1+2"
     End With
     With mTabs(5)
         .Title = "Education": .NameColumn = "Trainer(s)/Speaker(s)": .Prefix = "EDU"
         .SheetName = "DB_Education": .TableName = "tbl_Education": .Anchor = "title of course*"
         .Rule = RULE_YEAR_THEN_DATE: .YearHeader = "year": .DateHeader = "date/year/period"
         .NoHeader = "": .TitleHeader = "title of course*": .Key1Header = "title of course*": .Key2Header = "year"
+        .Keys = "1+2"
     End With
     With mTabs(6)
         .Title = "Projects": .NameColumn = "PI or Co-I/Collaborator": .Prefix = "PRJ"
@@ -364,6 +713,7 @@ Private Sub LoadTabs()
                 "co-i/collaborator|loa start date|loa end date|grant amount|grant amt (awarded to ttsh)|status"
         .Rule = RULE_PROJECT
         .NoHeader = "": .TitleHeader = "project name": .Key1Header = "grant ref no": .Key2Header = "project name"
+        .Keys = "1;2"
     End With
 End Sub
 
@@ -563,6 +913,33 @@ Private Function IsBlank(ByVal v As Variant) As Boolean
     Dim s As String
     s = Norm(v)
     IsBlank = (s = "" Or s = "(blank)")
+End Function
+
+' Whether two cell values are the same once formatting is set aside: spacing,
+' line breaks and case; empty against "(blank)"; numbers compared as numbers
+' and dates as dates, however each is formatted or stored.
+Private Function SameValue(ByVal a As Variant, ByVal b As Variant) As Boolean
+    Dim x As Double, y As Double, d1 As Date, d2 As Date
+    If IsBlank(a) Or IsBlank(b) Then
+        SameValue = (IsBlank(a) And IsBlank(b))
+    ElseIf Norm(a) = Norm(b) Then
+        SameValue = True
+    ElseIf ReadNumber(a, x) And ReadNumber(b, y) Then
+        SameValue = (Abs(x - y) < 0.000001)
+    ElseIf ReadDate(a, d1) And ReadDate(b, d2) Then
+        SameValue = (Int(CDbl(d1)) = Int(CDbl(d2)))
+    End If
+End Function
+
+' A value as IREx Admin should see it in a comment.
+Private Function ShowValue(ByVal v As Variant) As String
+    If IsBlank(v) Then
+        ShowValue = "(empty)"
+    ElseIf VarType(v) = vbDate Then
+        ShowValue = Format(v, "d mmm yyyy")
+    Else
+        ShowValue = CellText(v)
+    End If
 End Function
 
 ' Reads a real date, an Excel date number (also when stored as text), or a
@@ -768,11 +1145,31 @@ Private Function Tidy(ByVal s As String) As String
     Tidy = Trim(s)
 End Function
 
+' The file name without its folder or extension.
+Private Function BaseName(ByVal path As String) As String
+    Dim i As Long
+    For i = Len(path) To 1 Step -1
+        If Mid(path, i, 1) = "\" Or Mid(path, i, 1) = "/" Then Exit For
+    Next i
+    BaseName = Mid(path, i + 1)
+    If InStrRev(BaseName, ".") > 0 Then BaseName = Left(BaseName, InStrRev(BaseName, ".") - 1)
+End Function
+
 Private Function FileExists(ByVal path As String) As Boolean
     On Error Resume Next
     FileExists = (Dir(path) <> "")
     Err.Clear
 End Function
+
+'Saves an open workbook over its own file as .xlsx, and closes it.
+Private Sub SaveInPlace(ByVal wb As Object, ByVal path As String)
+    Dim alerts As Boolean
+    alerts = Application.DisplayAlerts
+    Application.DisplayAlerts = False
+    wb.SaveAs Filename:=path, FileFormat:=XL_WORKBOOK
+    Application.DisplayAlerts = alerts
+    wb.Close False
+End Sub
 
 ' Saves a new workbook as .xlsx at path, replacing any file there, and closes it.
 Private Sub SaveNew(ByVal wb As Object, ByVal path As String)
