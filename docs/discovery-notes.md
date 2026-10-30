@@ -203,8 +203,8 @@ The user questioned old round 3 Q6 (importing existing data). The data flow they
 - **One Collection Workbook for everyone.** Rehab Med isn't the only collection file today, so one shared file replaces them all: `IREX_Rehab_Data_Collection_CY<year>.xlsx`.
 - **Category of Article does exist, but it's hidden.** It's column M of `tbl_Publication` on `DB_Publications`. Columns J (Full Author Listing), M (Category of Article) and N (Other Remarks) are all hidden. Category of Article holds a single value, "Original Research Paper", in 89 of 116 rows. The rest are blank.
 - **Which tabs have a No. column:**
-  - `DB_Publications`: typed, filled on all 116 rows, no duplicates.
-  - `DB_Poster& Oral Presentation`: typed, filled on all 118 rows, no duplicates.
+  - `DB_Publications`: filled on all 116 rows, no duplicates. (Correction found while building: it's the same row-numbering formula as `DB_Media`, not typed.)
+  - `DB_Poster& Oral Presentation`: filled on all 118 rows, no duplicates. (Also the row-numbering formula.)
   - `DB_Media`: a **formula**, so it changes when rows move. Media also isn't an Excel table.
   - `DB_Talent Develop`, `DB_Education` and `DB_PrjGeneralInfo` have no No. column.
 
@@ -264,4 +264,4 @@ The Collection Workbook design is complete. What remains is the **Form phase**, 
 
 ## Next session
 
-The Collection Workbook design is confirmed and specified in [GitHub issue #1](https://github.com/zkaiiii04/IREx-Data-Gathering/issues/1). Next is either building it (on the user's go-ahead) or resuming the interview for the Form phase. [handoff.md](handoff.md) says how.
+The Collection Workbook design is confirmed, specified in [GitHub issue #1](https://github.com/zkaiiii04/IREx-Data-Gathering/issues/1), and built (see [handoff.md](handoff.md) and [collection-workbook.md](collection-workbook.md)). It waits on the user's Excel test run and their view on where the build departs from the spec. After that comes the Form phase interview.

@@ -1,6 +1,6 @@
 # Handoff: resuming the design interview
 
-The design interview on streamlining IREx's research data collection has two phases. The **Collection Workbook** design is confirmed (round 14). It's written up as a spec in [GitHub issue #1](https://github.com/zkaiiii04/IREx-Data-Gathering/issues/1) (`ready-for-agent`), and waits on the user's go-ahead to build. The **Form phase** (Power Apps) is parked. These three files hold everything decided so far:
+The design interview on streamlining IREx's research data collection has two phases. The **Collection Workbook** design is confirmed (round 14), written up as a spec in [GitHub issue #1](https://github.com/zkaiiii04/IREx-Data-Gathering/issues/1), and built: see "Building the Collection Workbook" below. The **Form phase** (Power Apps) is parked. These three files hold everything decided so far:
 
 - [GLOSSARY.md](../GLOSSARY.md): the canonical terms. Write in them.
 - [discovery-notes.md](discovery-notes.md): the problem, what the two workbooks contain, decisions settled in rounds 1–14, the confirmed Collection Workbook design, facts already checked, and topics not yet asked.
@@ -19,11 +19,16 @@ This file holds only what those three don't: how to resume, and the conversation
 
 ## Building the Collection Workbook
 
-- **The spec** is [GitHub issue #1](https://github.com/zkaiiii04/IREx-Data-Gathering/issues/1). Use it as the source for the build.
-- **The order:** `/to-tickets` breaks the spec into tickets, and `/implement-spec` builds them.
-- **What gets built:** VBA source for one new module (exported as `.bas`), the test runner, and fixture workbooks with invented data only.
-- **Testing:** this container can't run Excel. Fixtures can be generated with openpyxl. The user runs the VBA tests in desktop Excel on Windows and reports the results.
-- **The real main database:** the last upload was `/root/.claude/uploads/f7c6946e-91b1-58b7-9c27-9db89ff43d0b/1e7adb3a-tbl_IRExDB_Use_This.xlsm`. If it's gone, ask for a re-upload. Never commit it, and never copy names or figures from it into fixtures.
+- **The spec** is [GitHub issue #1](https://github.com/zkaiiii04/IREx-Data-Gathering/issues/1).
+- **Built, test-first:** `src/IRExCollection.bas` (the module for the Main Database), `tests/IRExCollectionTests.bas` (the tests), and fixtures with invented data made by `tests/fixtures/make_fixtures.py`. The user guide, including the Power Automate reminder flows, is [collection-workbook.md](collection-workbook.md).
+- **Testing:** `python3 tests/run_in_libreoffice.py` runs every test headless here. LibreOffice skips a few Excel-only checks, listed in [tests/README.md](../tests/README.md). The user runs the reference run in desktop Excel on Windows and reports the Results sheet. Until that happens, treat the Excel-only paths as unverified: tables, dropdowns, .xlsx output, replacing a file, and the prompts in `ExportStaffCopy` and `CheckCollectionWorkbook`.
+- **The real main database:** the last upload was `/root/.claude/uploads/d01558a1-cf84-46ac-8d31-0622debfd040/8a2acf9a-tbl_IRExDB_Use_This.xlsm`. If it's gone, ask for a re-upload. Never commit it, and never copy names or figures from it into fixtures. A smoke run on it (export 2025 then check) worked. It flags the AHINET label row below `tbl_Education` and one duplicated Media row pair.
+- **Where the build departs from the spec** (each needs the user's confirmation):
+  - The spec says No. is typed on Publications and Presentations. In fact No. is a row-numbering formula there too, as on Media. The export writes it as values, and matching by No. assumes rows weren't sorted or inserted mid-table in the Main Database.
+  - The spec reads rows below a table only when there's no gap. The real rows below `tbl_Education` come after 8 blank rows, so the export reads every filled row below, gaps allowed. This also picks up the bold label row.
+  - For a row with no Export ID that matches a record, only the cells it fills in are compared.
+  - A key match that finds several records is reported as such, naming the Main Database rows.
+  - The highlighted copy is made by copying the file first, so AutoSave can't write marks back into the shared Collection Workbook.
 
 ## Context from the conversation
 
@@ -57,7 +62,7 @@ This file holds only what those three don't: how to resume, and the conversation
 
 ## The workbooks
 
-The two `.xlsm` files were uploads to the earlier session and are **not in the repo**. Keep them out of it: they hold staff names and project finances. Everything the interview needs from them is summarised in the discovery notes. If a later question needs the files again, ask the user to re-upload them. **Building the two macros will need the main database's exact sheet and column names**, so ask for a re-upload before building.
+The two `.xlsm` files were uploads to the earlier session and are **not in the repo**. Keep them out of it: they hold staff names and project finances. Everything the interview needs from them is summarised in the discovery notes. If a later question needs the files again, ask the user to re-upload them. The macros' sheet, table and column names were taken from the upload named under "Building the Collection Workbook".
 
 Reading them:
 - `openpyxl` crashes on their pivot caches. Patch the parser before loading:

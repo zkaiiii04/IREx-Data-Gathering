@@ -93,7 +93,7 @@ Private Type SheetRows
 End Type
 
 Private mTabs(1 To 6) As TabSpec
-'Rows for the ID lookup and the export report. (Arrays, not Collections: in
+' Rows for the ID lookup and the export report. (Arrays, not Collections: in
 ' LibreOffice a module-level Collection returns its array items as objects.)
 Private mLookup() As Variant
 Private mLookupCount As Long
@@ -243,8 +243,6 @@ End Function
 ' Export Staff Copy
 ' ===========================================================================
 
-' Writes the Collection Workbook for year into collectionFolder and returns its
-' path. The ID lookup and the export report go into adminFolder.
 ' Writes the Collection Workbook for calendarYear into collectionFolder and
 ' returns its path. The ID lookup and the export report go into adminFolder.
 ' If the Collection Workbook already exists, it's replaced only when
@@ -334,7 +332,11 @@ Private Sub ExportTab(ByVal mainDatabase As Object, ByRef spec As TabSpec, ByVal
     For c = 1 To n
         If src.RowCount > 0 Then
             list = DropdownList(srcSheet.Cells(src.RowNums(1), src.Cols(cols(c))))
-            If list <> "" Then AddDropdown ws.Range(ws.Cells(HEADER_ROW + 1, c), ws.Cells(outRow + ROOM_FOR_NEW_ROWS, c)), list
+            If list <> "" Then
+                If Not AddDropdown(ws.Range(ws.Cells(HEADER_ROW + 1, c), ws.Cells(outRow + ROOM_FOR_NEW_ROWS, c)), list) Then
+                    ReportLine "Dropdown not carried over", spec.Title, "", Tidy(src.Headers(cols(c))), list
+                End If
+            End If
         End If
     Next c
     MakeTable ws, spec, Application.WorksheetFunction.Max(outRow, HEADER_ROW + 1), idCol
@@ -364,12 +366,15 @@ Private Function DropdownList(ByVal cell As Object) As String
     DropdownList = Mid(s, 2)
 End Function
 
-Private Sub AddDropdown(ByVal target As Object, ByVal list As String)
+' Returns False if Excel refuses the list (for example, longer than 255 characters).
+Private Function AddDropdown(ByVal target As Object, ByVal list As String) As Boolean
     On Error Resume Next
     target.Validation.Delete
-    target.Validation.Add Type:=XL_VALIDATE_LIST, AlertStyle:=1, Operator:=1, Formula1:=list
     Err.Clear
-End Sub
+    target.Validation.Add Type:=XL_VALIDATE_LIST, AlertStyle:=1, Operator:=1, Formula1:=list
+    AddDropdown = (Err.Number = 0)
+    Err.Clear
+End Function
 
 Private Sub MakeTable(ByVal ws As Object, ByRef spec As TabSpec, ByVal lastRow As Long, ByVal lastCol As Long)
     Dim t As Object
@@ -580,22 +585,22 @@ Private Sub CheckTab(ByVal cw As Object, ByVal mainDatabase As Object, ByVal t A
                     Else
                         Mark ws, rows, r, mdCol, noteCol, 0, "Can't find in Main Database: more than one record matches (Main Database rows " & multiple & ")"
                     End If
-                    Count t, COUNT_CANT_FIND, "Can't find in Main Database", sheetRow, id, CellText(LookupTitle(li))
+                    Tally t, COUNT_CANT_FIND, "Can't find in Main Database", sheetRow, id, CellText(LookupTitle(li))
                 Else
                     diffs = MarkDifferences(ws, rows, r, mdCol, md, found, False)
                     If diffs > 0 Then
                         Mark ws, rows, r, mdCol, noteCol, YELLOW, "Changed: " & RecordName(md, spec, found)
-                        Count t, COUNT_CHANGED, "Changed", sheetRow, id, RecordName(md, spec, found)
+                        Tally t, COUNT_CHANGED, "Changed", sheetRow, id, RecordName(md, spec, found)
                     End If
                 End If
             Else
                 found = FindRecord(md, spec, RowField(rows, r, spec.NoHeader), RowField(rows, r, spec.Key1Header), RowField(rows, r, spec.Key2Header), multiple)
                 If found = 0 And multiple <> "" Then
                     Mark ws, rows, r, mdCol, noteCol, 0, "Already recorded more than once (Main Database rows " & multiple & ")"
-                    Count t, COUNT_ALREADY, "Already recorded more than once", sheetRow, "", "Main Database rows " & multiple
+                    Tally t, COUNT_ALREADY, "Already recorded more than once", sheetRow, "", "Main Database rows " & multiple
                 ElseIf found = 0 Then
                     Mark ws, rows, r, mdCol, noteCol, GREEN, "New"
-                    Count t, COUNT_NEW, "New", sheetRow, "", CellText(RowField(rows, r, spec.TitleHeader))
+                    Tally t, COUNT_NEW, "New", sheetRow, "", CellText(RowField(rows, r, spec.TitleHeader))
                 Else
                     diffs = MarkDifferences(ws, rows, r, mdCol, md, found, True)
                     If diffs > 0 Then
@@ -603,7 +608,7 @@ Private Sub CheckTab(ByVal cw As Object, ByVal mainDatabase As Object, ByVal t A
                     Else
                         Mark ws, rows, r, mdCol, noteCol, 0, "Already recorded as " & RecordName(md, spec, found)
                     End If
-                    Count t, COUNT_ALREADY, "Already recorded", sheetRow, "", RecordName(md, spec, found)
+                    Tally t, COUNT_ALREADY, "Already recorded", sheetRow, "", RecordName(md, spec, found)
                 End If
             End If
         End If
@@ -665,7 +670,7 @@ Private Sub Mark(ByVal ws As Object, ByRef rows As SheetRows, ByVal r As Long, B
     WriteValue ws.Cells(rows.RowNums(r), noteCol), note
 End Sub
 
-Private Sub Count(ByVal t As Long, ByVal what As Long, ByVal entry As String, ByVal sheetRow As Variant, ByVal id As String, ByVal detail As String)
+Private Sub Tally(ByVal t As Long, ByVal what As Long, ByVal entry As String, ByVal sheetRow As Variant, ByVal id As String, ByVal detail As String)
     mCounts(t, what) = mCounts(t, what) + 1
     ReportLine entry, mTabs(t).Title, sheetRow, id, detail
 End Sub
@@ -734,7 +739,7 @@ Private Sub ListDeleted()
         If Not mIdSeen(i) Then
             For t = 1 To 6
                 If mTabs(t).Title = mIds(i, 1) Then
-                    Count t, COUNT_DELETED, "Deleted", "", CStr(mIds(i, 0)), CellText(mIds(i, 3))
+                    Tally t, COUNT_DELETED, "Deleted", "", CStr(mIds(i, 0)), CellText(mIds(i, 3))
                 End If
             Next t
         End If
@@ -1365,7 +1370,14 @@ End Sub
 ' Saves a new workbook as .xlsx at path, replacing any file there, and closes it.
 Private Sub SaveNew(ByVal wb As Object, ByVal path As String)
     Dim alerts As Boolean
+    On Error Resume Next
     If FileExists(path) Then Kill path
+    If Err.Number <> 0 Then
+        On Error GoTo 0
+        wb.Close False
+        Err.Raise vbObjectError + 3, , "Close " & path & " (it may be open on this PC) and run the macro again."
+    End If
+    On Error GoTo 0
     alerts = Application.DisplayAlerts
     Application.DisplayAlerts = False
     wb.SaveAs Filename:=path, FileFormat:=XL_WORKBOOK
