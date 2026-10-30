@@ -90,7 +90,8 @@ Private Function TestNames() As Variant
         "Check_ignores_blank_rows_and_rows_of_spaces", _
         "Check_summary_counts_each_kind_of_row_per_tab", _
         "Check_of_a_fresh_export_marks_nothing", _
-        "Check_leaves_the_Main_Database_as_it_was")
+        "Check_leaves_the_Main_Database_as_it_was", _
+        "Check_names_the_Main_Database_rows_when_a_key_matches_more_than_one_record")
 End Function
 
 Private Sub Setup(ByVal fixtures As String, ByVal outDir As String, ByVal inLibreOffice As Boolean)
@@ -143,6 +144,7 @@ Private Sub Dispatch(ByVal name As String)
         Case "Check_summary_counts_each_kind_of_row_per_tab": Check_summary_counts_each_kind_of_row_per_tab
         Case "Check_of_a_fresh_export_marks_nothing": Check_of_a_fresh_export_marks_nothing
         Case "Check_leaves_the_Main_Database_as_it_was": Check_leaves_the_Main_Database_as_it_was
+        Case "Check_names_the_Main_Database_rows_when_a_key_matches_more_than_one_record": Check_names_the_Main_Database_rows_when_a_key_matches_more_than_one_record
         Case Else: Fail "no such test"
     End Select
 End Sub
@@ -667,7 +669,7 @@ Private Sub Check_summary_counts_each_kind_of_row_per_tab()
         ws.Range("E3").Value, ws.Range("F3").Value, ws.Range("G3").Value), "|"), "headings"
     AssertEqual "2|1|1|1|1|1", SummaryRow(wb, "Publications"), "Publications"
     AssertEqual "0|1|0|0|0|0", SummaryRow(wb, "Poster & Oral Presentation"), "Presentations"
-    AssertEqual "1|1|1|0|0|0", SummaryRow(wb, "Media"), "Media"
+    AssertEqual "1|1|2|0|1|0", SummaryRow(wb, "Media"), "Media"
     AssertEqual "0|1|0|0|0|0", SummaryRow(wb, "Talent Development"), "Talent Development"
     AssertEqual "1|0|0|0|2|0", SummaryRow(wb, "Education"), "Education"
     AssertEqual "0|1|0|0|0|0", SummaryRow(wb, "Projects"), "Projects"
@@ -684,6 +686,18 @@ Private Sub Check_of_a_fresh_export_marks_nothing()
         AssertEqual "0|0|0|0|0|0", SummaryRow(wb, CStr(t)), CStr(t)
     Next t
     AssertEqual "0|0|0|0|1|0", SummaryRow(wb, "Education"), "Education"
+End Sub
+
+' Media No. 4 and No. 6 are the same title and outlet (sheet rows 5 and 7).
+Private Sub Check_names_the_Main_Database_rows_when_a_key_matches_more_than_one_record()
+    Dim wb As Object, ws As Object
+    Set wb = OpenWorkbook(CheckFixture())
+    Set ws = wb.Worksheets("Media")
+    AssertEqual "Can't find in Main Database: more than one record matches (Main Database rows 5, 7)", _
+        NoteOf(ws, RowOf(ws, "Export ID", "MED-0005")), "with an Export ID"
+    AssertEqual "Already recorded more than once (Main Database rows 5, 7)", _
+        NoteOf(ws, RowWithoutExportId(ws, MEDIA_OUTLET, "TestTube")), "without an Export ID"
+    AssertTrue FillOf(ws, RowWithoutExportId(ws, MEDIA_OUTLET, "TestTube"), MEDIA_OUTLET) <> GREEN, "not marked new"
 End Sub
 
 Private Sub Check_leaves_the_Main_Database_as_it_was()

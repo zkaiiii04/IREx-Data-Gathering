@@ -557,7 +557,7 @@ Private Sub CheckTab(ByVal cw As Object, ByVal mainDatabase As Object, ByVal t A
         End If
     Next c
 
-    Dim noteCol As Long, r As Long, sheetRow As Long, id As String, li As Long, found As Long, diffs As Long
+    Dim noteCol As Long, r As Long, sheetRow As Long, id As String, li As Long, found As Long, diffs As Long, multiple As String
     noteCol = LastUsedColumn(ws) + 1
     ws.Cells(rows.HeaderRow, noteCol).Value = CHECK_NOTE_HEADER
     ws.Cells(rows.HeaderRow, noteCol).Font.Bold = True
@@ -569,12 +569,17 @@ Private Sub CheckTab(ByVal cw As Object, ByVal mainDatabase As Object, ByVal t A
             If id <> "" Then
                 li = LookupIndex(id)
                 found = 0
+                multiple = ""
                 If li > 0 Then
                     mIdSeen(li) = True
-                    If mIds(li, 1) = spec.Title Then found = FindRecord(md, spec, mIds(li, 2), mIds(li, 4), mIds(li, 5))
+                    If mIds(li, 1) = spec.Title Then found = FindRecord(md, spec, mIds(li, 2), mIds(li, 4), mIds(li, 5), multiple)
                 End If
                 If found = 0 Then
-                    Mark ws, rows, r, mdCol, noteCol, 0, "Can't find in Main Database"
+                    If multiple = "" Then
+                        Mark ws, rows, r, mdCol, noteCol, 0, "Can't find in Main Database"
+                    Else
+                        Mark ws, rows, r, mdCol, noteCol, 0, "Can't find in Main Database: more than one record matches (Main Database rows " & multiple & ")"
+                    End If
                     Count t, COUNT_CANT_FIND, "Can't find in Main Database", sheetRow, id, CellText(LookupTitle(li))
                 Else
                     diffs = MarkDifferences(ws, rows, r, mdCol, md, found, False)
@@ -584,8 +589,11 @@ Private Sub CheckTab(ByVal cw As Object, ByVal mainDatabase As Object, ByVal t A
                     End If
                 End If
             Else
-                found = FindRecord(md, spec, RowField(rows, r, spec.NoHeader), RowField(rows, r, spec.Key1Header), RowField(rows, r, spec.Key2Header))
-                If found = 0 Then
+                found = FindRecord(md, spec, RowField(rows, r, spec.NoHeader), RowField(rows, r, spec.Key1Header), RowField(rows, r, spec.Key2Header), multiple)
+                If found = 0 And multiple <> "" Then
+                    Mark ws, rows, r, mdCol, noteCol, 0, "Already recorded more than once (Main Database rows " & multiple & ")"
+                    Count t, COUNT_ALREADY, "Already recorded more than once", sheetRow, "", "Main Database rows " & multiple
+                ElseIf found = 0 Then
                     Mark ws, rows, r, mdCol, noteCol, GREEN, "New"
                     Count t, COUNT_NEW, "New", sheetRow, "", CellText(RowField(rows, r, spec.TitleHeader))
                 Else
@@ -676,10 +684,12 @@ End Function
 
 ' The Main Database record a set of match key values points to: the first key,
 ' in the tab's order, that finds exactly one record. A key is skipped when its
-' first field is empty. Returns 0 if no key finds exactly one.
-Private Function FindRecord(ByRef md As SheetRows, ByRef spec As TabSpec, ByVal v0 As Variant, ByVal v1 As Variant, ByVal v2 As Variant) As Long
+' first field is empty. Returns 0 if no key finds exactly one; then, if a key
+' found several, multiple lists their sheet rows ("5, 7").
+Private Function FindRecord(ByRef md As SheetRows, ByRef spec As TabSpec, ByVal v0 As Variant, ByVal v1 As Variant, ByVal v2 As Variant, ByRef multiple As String) As Long
     Dim key As Variant, fields As Variant, values(0 To 2) As Variant, headers(0 To 2) As String
-    Dim cols() As Long, f As Long, r As Long, hits As Long, hit As Long, usable As Boolean
+    Dim cols() As Long, f As Long, r As Long, hits As Long, hit As Long, usable As Boolean, rowList As String
+    multiple = ""
     values(0) = v0: values(1) = v1: values(2) = v2
     headers(0) = spec.NoHeader: headers(1) = spec.Key1Header: headers(2) = spec.Key2Header
     For Each key In Split(spec.Keys, ";")
@@ -693,12 +703,15 @@ Private Function FindRecord(ByRef md As SheetRows, ByRef spec As TabSpec, ByVal 
         Next f
         If usable Then
             hits = 0
+            rowList = ""
             For r = 1 To md.RowCount
                 If KeyMatches(md, r, cols, fields, values) Then
                     hits = hits + 1
                     hit = r
+                    rowList = rowList & ", " & md.RowNums(r)
                 End If
             Next r
+            If hits > 1 And multiple = "" Then multiple = Mid(rowList, 3)
             If hits = 1 Then
                 FindRecord = hit
                 Exit Function

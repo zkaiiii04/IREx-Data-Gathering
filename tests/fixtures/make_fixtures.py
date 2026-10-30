@@ -161,6 +161,9 @@ MEDIA = [
     # No. 5: unreadable date
     ["Goh Mei Xin", "Websites & Blogs", "Nov 26(KIV)", "Living well after spinal cord injury",
      "Test Blog", None, None, None],
+    # No. 6: No. 4 copied in twice by mistake (2024, not exported)
+    ["Tan Wei Ling", "Social Media", D(2024, 12, 1), "Therapy tips video", "TestTube",
+     "https://example.com/v", None, None],
 ]
 
 TDS = [
@@ -491,6 +494,8 @@ def make_collection_workbook(folder):
         [5] + m[5] + ["MED-0004"],
         [None] + new_outlet + [None],                            # same story, new outlet: new
         [None] + retyped + [None],                               # same story and outlet: already recorded
+        [None] + m[4] + [None],                                  # matches the duplicated pair
+        [4] + m[4] + ["MED-0005"],                               # exported before the duplicate was made
     ], table_rows=4)
 
     t = {i + 1: rec for i, rec in enumerate(TDS)}
@@ -542,7 +547,7 @@ def make_collection_workbook(folder):
     for n, (no, title) in enumerate([(1, pr[1][0]), (2, pr[2][0]),
                                      (4, "Virtual reality balance training")], 1):
         ws.append([f"PRES-{n:04d}", "Poster & Oral Presentation", no, title, title, None])
-    for n, (no, rec) in enumerate([(1, m[1]), (2, m[2]), (3, m[3]), (5, m[5])], 1):
+    for n, (no, rec) in enumerate([(1, m[1]), (2, m[2]), (3, m[3]), (5, m[5]), (4, m[4])], 1):
         ws.append([f"MED-{n:04d}", "Media", no, rec[3], rec[3], rec[4]])
     for n, rec in enumerate([t[1], t[2], t[4]], 1):
         ws.append([f"TD-{n:04d}", "Talent Development", None, rec[2], rec[0], rec[2]])
