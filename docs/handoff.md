@@ -1,6 +1,6 @@
 # Handoff: resuming the design interview
 
-The design interview on streamlining IREx's research data collection has two phases. The **Collection Workbook** design is confirmed (round 14) and waits on the user's go-ahead to build. The **Form phase** (Power Apps) is parked. These three files hold everything decided so far:
+The design interview on streamlining IREx's research data collection has two phases. The **Collection Workbook** design is confirmed (round 14). It's written up as a spec in [GitHub issue #1](https://github.com/zkaiiii04/IREx-Data-Gathering/issues/1) (`ready-for-agent`), and waits on the user's go-ahead to build. The **Form phase** (Power Apps) is parked. These three files hold everything decided so far:
 
 - [GLOSSARY.md](../GLOSSARY.md): the canonical terms. Write in them.
 - [discovery-notes.md](discovery-notes.md): the problem, what the two workbooks contain, decisions settled in rounds 1–14, the confirmed Collection Workbook design, facts already checked, and topics not yet asked.

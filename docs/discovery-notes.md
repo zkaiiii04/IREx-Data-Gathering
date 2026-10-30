@@ -264,4 +264,4 @@ The Collection Workbook design is complete. What remains is the **Form phase**, 
 
 ## Next session
 
-The Collection Workbook design is confirmed. Next is either building it (on the user's go-ahead) or resuming the interview for the Form phase. [handoff.md](handoff.md) says how.
+The Collection Workbook design is confirmed and specified in [GitHub issue #1](https://github.com/zkaiiii04/IREx-Data-Gathering/issues/1). Next is either building it (on the user's go-ahead) or resuming the interview for the Form phase. [handoff.md](handoff.md) says how.
