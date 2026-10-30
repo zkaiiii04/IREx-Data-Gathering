@@ -190,13 +190,15 @@ The user questioned old round 3 Q6 (importing existing data). The data flow they
 3. **Export ID.** The export writes a hidden Export ID on every row. Matching uses it, not No. The export lists main database rows that have no No.
 4. **File name.** The user wants the file named like the current collection file, `IREX_Rehab_Med_Data_Collection_CY2026.xlsm`. See round 14 Q2.
 
-## Open questions (round 14)
+## Settled (round 14)
 
-1. **A small ID lookup for the Export ID.** With no snapshot, the check still needs to know which main database record each Export ID belongs to, and the main database itself can't be changed. Recommended: the export saves a small lookup file in the admin-only folder that lists each Export ID with its tab, No. and title, and nothing else. The check uses it to find the record in today's main database, by No. if there is one, otherwise by title. If IREx Admin has since changed a record's title and it has no No., that row is listed as "can't find in main database".
-2. **File name and Family Groups.** Recommended: `IREX_Rehab_Med_Data_Collection_CY<year>.xlsx`, the current name with the chosen year and .xlsx, because it has no macros. "Collection Workbook" is the term used in conversation and docs. Question: the current name says *Rehab_Med*. Are there separate collection files today for Rehab AHS, Rehab Nursing and MSW? If so, either one shared file replaces them all (named e.g. `IREX_Rehab_Data_Collection_CY<year>.xlsx`), or there's one file per Family Group, each exported with only that group's rows.
-3. **Shared understanding of the Collection Workbook design.** The summary below is for the user to confirm. The Form part is parked until later.
+1. **ID lookup.** The export saves a small lookup file in the admin-only folder, listing each Export ID with its tab, No. and title. The check uses it to find the record in today's main database: by No. if there is one, otherwise by title. Rows it can't find are listed.
+2. **File name.** `IREX_Rehab_Med_Data_Collection_CY<year>.xlsx` if Rehab Med's is the only collection file today. If other Family Groups have their own files, there's one shared file for everyone instead (e.g. `IREX_Rehab_Data_Collection_CY<year>.xlsx`). Whether other files exist still needs confirming before the build.
+3. **The Collection Workbook design below is confirmed** as the shared understanding. Building starts only when the user gives the go-ahead.
+4. **Power Apps appears to be available.** The user can create a canvas app. That makes Power Apps, with an *Add another* button, the choice for the Form phase (round 6 Q3), and Microsoft Forms with caps is no longer needed as the fallback. Still to test: sharing an app with a colleague and calling a Power Automate flow from it.
+5. **Category of Article.** The user asked where it's stated. It's a column in the main database's Publications table (`tbl_Publication`). Its values are whatever has been entered there: the column's filter dropdown lists them, and so does `tbl_List`, if the column has a dropdown list.
 
-## Collection Workbook design (draft for confirmation)
+## Collection Workbook design (confirmed in round 14)
 
 **The Collection Workbook**
 - One shared .xlsx in a SharePoint folder that Rehab Staff can edit. It has no macros.
@@ -223,7 +225,7 @@ The user questioned old round 3 Q6 (importing existing data). The data flow they
   - a summary sheet with counts, deleted rows and extra columns
 - IREx Admin copies rows into the main database by hand. Nothing writes into the main database automatically.
 
-**Parked (Form, later):** a Microsoft Form (or Power Apps, if available) feeding a Submissions workbook, with an Import Submissions macro. The question lists for each activity type are settled in rounds 8, 9 and 11, and names are left for the Submitter to fill in. Still open: whether Power Apps is available, and the Category of Article values.
+**Parked (Form, later):** a Power Apps form (available, per round 14) feeding a Submissions workbook, with an Import Submissions macro. The question lists for each activity type are settled in rounds 8, 9 and 11, and names are left for the Submitter to fill in. Still open: whether Power Apps is available, and the Category of Article values.
 
 ## Platform facts checked
 
@@ -239,11 +241,12 @@ These were looked up during the interview, so they don't need to be put to the u
 
 ## Not yet asked
 
-These come after round 14:
+The Collection Workbook design is complete. What remains is the **Form phase**, which is parked until the user wants to resume it:
 
-- Category of Article values for the Publication question (needed from the user).
-- Power Apps: the user hasn't checked make.powerapps.com yet.
+- Power Apps form design: screens, the *Add another* behaviour per activity type, and the call to Power Automate. First, test sharing the app with a colleague.
+- The Category of Article values, from the Publications table's column.
+- Whether the Form phase's Submissions workbook and Import Submissions macro still fit, or whether the user would rather reuse the Collection Workbook's check-and-copy approach.
 
 ## Next session
 
-Resume by putting round 14 to the user again; [handoff.md](handoff.md) says how.
+The Collection Workbook design is confirmed. Next is either building it (on the user's go-ahead) or resuming the interview for the Form phase. [handoff.md](handoff.md) says how.

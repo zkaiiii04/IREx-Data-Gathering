@@ -28,6 +28,14 @@ _Avoid_: collector, admin team
 The IREx Committee meeting where IREx's research KPIs are reported. It's held about twice a year, on dates that vary by a few months.
 _Avoid_: committee meeting, bi-annual report, department meeting
 
+**Main Database**:
+IREx Admin's workbook of every Research Output, Talent Development, Education Activity and Project. It's the source of truth, edited by hand.
+_Avoid_: database (alone), master file
+
+**Collection Workbook**:
+The shared workbook that Rehab Staff check their existing records in and add new ones to. It's made fresh from the Main Database for one calendar year. Rehab Staff never see the Main Database itself.
+_Avoid_: staff input workbook, staff workbook, staff copy, submission excel
+
 **Submission**:
 One completed response to the reporting form. A single Submission may report several Research Outputs, Talent Developments, Education Activities and Projects.
 _Avoid_: entry, response, form
