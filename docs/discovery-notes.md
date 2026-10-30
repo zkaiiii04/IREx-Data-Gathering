@@ -153,15 +153,33 @@ The user questioned old round 3 Q6 (importing existing data). The data flow they
 6. **Education Activity questions** are as proposed. Trainers aren't filled in automatically.
 7. **New Project questions** are as proposed, including Grant Amount and Amount Awarded to TTSH.
 
-## Open questions (round 10)
+## Settled (round 10)
 
-1. **Talent Development amounts in the staff copy.** Project Grant Amount and Amount Awarded to TTSH now stay in. Recommended: leave out Talent Development grant amounts, because they're personal grants to a named person rather than project funding.
-2. **How many sheets.** Recommended: the same number of tabs as today's staff file, not twice as many. Each tab has its New entries table at the **top**: about 50 blank, unlocked rows, with dropdowns, showing only the columns staff fill in, in the main database's order. The existing records sit below, locked. Excel can't grow a table on a locked sheet, which is why the blank rows are made in advance; the export resets them every cycle. Also, merge today's two project tabs ("Research" and "Innovation", which both hold all 103 projects) into one Projects tab.
-3. **One review queue, explained.** The Submissions workbook has one table per activity type, e.g. one Publications table. Form Submissions arrive there automatically. When IREx Admin clicks Import, the macro first copies the staff file's New entries into those same tables, so a Publication typed into Excel and one sent through the Form sit in the same Publications table. A *Source* column says Form or Excel. IREx Admin then sets Decision on every row in one place. Recommended: yes.
-4. **No name column is filled automatically.** This follows the user's answers on TTSH Contributor, Talent Development and Education. Recommended: no person column is filled from the Submitter's login. That covers TTSH Contributor, Presentation Full Name, Media Full name, Talent Development Name and Education Trainers. IREx Admin fills them, using *Submitted by* and their own name format. Project PI stays a form question. This replaces round 6 Q4 and round 8's "Full Name = Submitter".
-5. **Rollout.** Recommended: start at the next quarterly reminder. That email carries the Form link, the first exported staff file, and a short one-page "how to report" guide. No separate parallel run, since the Excel route continues anyway. After the first cycle, IREx Admin checks for problems: missing entries, rows that wouldn't import, and confusing questions.
+1. **Talent Development amounts stay in the staff workbook.** Without them, IREx Admin would have to look the amounts up themselves.
+2. **Keep the staff workbook simple.** Staff add new rows to the existing sheets, as now. There's no separate New entries table, no locked rows, and no extra tabs. The process has to cope with rows typed outside the Excel table (round 11 Q2). Staff should be able to search for their own name (round 11 Q5). This replaces round 9's locked records with a New entries table.
+3. **The staff workbook stands alone and gets built first.** It isn't linked to the Submissions workbook or the Form review queue. The user needs to start collecting data now, so the staff workbook with automated reminders comes first, and the Form, Submissions workbook and Import Submissions macro come later. This replaces round 9's single review queue. How rows get from the staff workbook into the main database: round 11 Q4.
+4. **Names on the Form.** The user asked whether this meant names being filled in automatically from the Form. It's explained again in round 11 Q6.
+5. **Rollout starts now, without the Form.** The first cycle sends the staff workbook and reminders only. The Form is added in a later cycle.
 
-Still needed from the user: the **Category of Article** values, and whether Power Apps is available (make.powerapps.com).
+## Open questions (round 11)
+
+These are about the staff workbook, the part being built first.
+
+1. **One shared file or emailed copies.** Recommended: one shared staff workbook in a SharePoint folder that Rehab Staff can edit, with the link in every reminder. Everyone edits the same file in the browser or desktop Excel, so there are no 30 copies to merge. It has no macros: the macros live in the main database.
+2. **Rows typed outside the table.** Recommended: don't rely on staff typing inside the table. When IREx Admin collects, the macro reads every filled row on each sheet, inside or below the table. A row with no *No.* is new, because the export writes the main database's No. on every existing row.
+3. **Staff editing an existing row.** Staff will naturally update their own row, for example Under Review → Published. Recommended: when collecting, the macro compares each existing row with the main database. It lists the changed cells and highlights them in the main database, and IREx Admin applies them by hand. Nothing is overwritten automatically.
+4. **Getting staff rows into the main database.** Recommended: an *Import Staff Entries* macro in the main database. It appends new rows inside the right tables, highlights likely duplicates by title or DOI, and lists the edits from Q3. It runs before each fresh Export Staff Copy, which replaces the shared file, so nothing is lost. Until the macro exists, IREx Admin copies the rows by hand as now.
+5. **Searching for your name.** Recommended: a short note at the top of each sheet: "Find your records: Ctrl+F, or the filter arrow on the name column. If Excel offers a *Sheet View*, choose it so you don't change what others see." There's no search box, because in a shared file one person's typed search would change it for everyone. Searching for the family name catches most spelling variants.
+6. **Names on the Form (later).** When someone submits the Form, their name and email are recorded automatically in *Submitted by*. That's the Form's sign-in, not a question. The round 10 question was whether to also copy that name into the name columns (e.g. Presentation Full Name). Recommended: no. Name columns arrive blank, and IREx Admin fills them from Submitted by in their own name format.
+7. **Build order.** Recommended, starting now:
+   - (1) the Export Staff Copy macro, which strips the finance and admin columns except Grant Amount and Amount Awarded to TTSH
+   - (2) the shared staff workbook in SharePoint
+   - (3) the two Power Automate reminder flows (quarterly, and on demand) linking to it
+   - (4) the Import Staff Entries macro, ready before the first collection
+
+   Later: the Form, the Submissions workbook and the Import Submissions macro.
+
+Still needed from the user: the Category of Article values (for the Form, and an optional dropdown in the staff workbook), and whether Power Apps is available.
 
 ## Platform facts checked
 
@@ -171,16 +189,17 @@ These were looked up during the interview, so they don't need to be put to the u
 - **Power Automate Excel Online (Business) connector**: Microsoft's documentation contradicts itself on .xlsm. Older connector docs list only .xlsx and .xlsb. The Office Scripts docs say .xlsm works, chiefly through *Run script*. VBA macros never run from Power Automate. ([connector](https://learn.microsoft.com/connectors/excelonlinebusiness), [Office Scripts](https://learn.microsoft.com/office/dev/scripts/develop/macros-power-automate))
 - **Power Apps**: canvas apps that use only standard connectors (SharePoint, Excel Online, Outlook) are covered by Microsoft 365 E1/E3/E5 licences, unless IT has disabled them. Premium connectors (SQL, Dataverse) need a paid licence for every user. A flow that a Power App calls can use its owner's connection rather than the user's, so users don't need access to the target file. These come from community sources ([Microsoft Community](https://techcommunity.microsoft.com/discussions/microsoft-365/power-platform-licenses-and-features-in-office-365-e3-subscription/2553776), [run-only users](https://community.powerapps.com/t5/General-Power-Automate/All-about-quot-Manage-Run-Only-Users-quot/m-p/123305)), so test them in TTSH's tenant. Whether TTSH allows Power Apps is unknown.
 - **Excel macros**: Office blocks VBA by default in files that come from the internet or email (Mark of the Web), and VBA doesn't run in Excel for the web. A macro file sent to staff would need them to unblock it and open it in desktop Excel.
+- **Sheet Views** in Microsoft 365 Excel (desktop and web) let one person sort or filter a shared file without changing what others see. Sheet Views don't isolate typed cell values.
 - **Excel tables on protected sheets** can't be resized or have rows inserted, so a New entries table on a locked sheet needs its blank rows made in advance. Excel for the web supports protected sheets and data validation dropdowns.
 - **Microsoft Lists forms**: Microsoft has no official list of the column types they support. A third-party checklist says Person and Choice work ([handsontek](https://lists.handsontek.net/column-type-checklist-microsoft-lists-forms/)). Not needed while SharePoint Lists are out of the design.
 
 ## Not yet asked
 
-These come after round 10:
+These come after round 11:
 
 - Category of Article values for the Publication question (needed from the user).
 - Power Apps: the user hasn't checked make.powerapps.com yet.
 
 ## Next session
 
-Resume by putting round 10 to the user again; [handoff.md](handoff.md) says how.
+Resume by putting round 11 to the user again; [handoff.md](handoff.md) says how.

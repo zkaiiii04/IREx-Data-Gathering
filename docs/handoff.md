@@ -1,9 +1,9 @@
 # Handoff: resuming the design interview
 
-The design interview on streamlining IREx's research data collection is paused at **round 10, unanswered**. These three files hold everything decided so far:
+The design interview on streamlining IREx's research data collection is paused at **round 11, unanswered**. These three files hold everything decided so far:
 
 - [GLOSSARY.md](../GLOSSARY.md): the canonical terms. Write in them.
-- [discovery-notes.md](discovery-notes.md): the problem, what the two workbooks contain, decisions settled in rounds 1–9, the round-10 questions with recommendations, facts already checked, and topics not yet asked.
+- [discovery-notes.md](discovery-notes.md): the problem, what the two workbooks contain, decisions settled in rounds 1–10, the round-11 questions with recommendations, facts already checked, and topics not yet asked.
 - `git log` on this branch: one commit per round.
 
 This file holds only what those three don't: how to resume, and the conversational context.
@@ -12,12 +12,14 @@ This file holds only what those three don't: how to resume, and the conversation
 
 1. Load the `grilling` and `domain-modeling` skills with the Skill tool. (`/grill-with-docs` loads both, but only the user can type it.)
 2. Read the glossary and the discovery notes in full.
-3. Put round 10 to the user again, worded from the notes. Use the grilling format: numbered ❓ questions, each with a ➡️ recommendation, worded so that "yes" accepts it. Then wait for answers.
+3. Put round 11 to the user again, worded from the notes. Use the grilling format: numbered ❓ questions, each with a ➡️ recommendation, worded so that "yes" accepts it. Then wait for answers.
 4. As answers arrive: update the glossary as soon as a term is settled, move answered questions into a new "Settled (round N)" section, write the next round's frontier as "Open questions (round N+1)", then commit and push. When an answer reverses an earlier decision, say so in the settled entry ("This replaces round X's …").
 5. ADRs live in `docs/adr/` (format in the `domain-modeling` skill). 0001 records that the main database stays the hand-edited source of truth. Offer more only when a decision meets the skill's three tests.
 6. The interview is finished when the "Not yet asked" list in the notes is empty and the user confirms there's a shared understanding. Build nothing before that.
 
 ## Context from the conversation
+
+- **The staff workbook is built first.** The user needs to start collecting data now, so the Form comes later (round 10).
 
 - **The user is IREx Admin.** They run the main database with their admin staff and build the KPI Review PowerPoint from its visualisation tabs.
 - **The user answers by question number, often by voice.** They once said "Power Automate" when they meant Power Apps. Expect transcription slips: "commuter meetings" meant committee meetings, and "Lian Foundation" meant Lien Foundation. Read for intent, and confirm only real ambiguity.
@@ -37,6 +39,8 @@ This file holds only what those three don't: how to resume, and the conversation
   - A "Rehab Staff involved" names box on the form (round 5).
   - Outlook distribution lists for reminders (round 7). IREx Admin keeps the list of addresses.
   - A *Merged* Decision value (round 8). The macro highlights likely duplicates, and IREx Admin fixes them by hand.
+  - Locked existing rows, a separate New entries table, or extra tabs in the staff workbook (round 10). Keep it simple: staff add rows to the existing sheets.
+  - One review queue mixing staff workbook rows with Form rows (round 10). The staff workbook stands alone.
   - Filling any staff name column automatically from the Submitter (rounds 8–9). The user wants IREx Admin to fill names.
 - **"IREx Member" was a misunderstanding.** It meant the IREx Committee. Reporting is open to all Rehab Staff, so no member list is needed for the form. The user offered a committee list for a later session, but nothing currently depends on it.
 - **Microsoft 365 enterprise, no Copilot agents.** Forms and Power Automate are confirmed. Power BI is unconfirmed. Whether TTSH allows Power Apps is unknown: the user is checking at make.powerapps.com. Ask again whether they've checked.
