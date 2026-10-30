@@ -183,25 +183,47 @@ The user questioned old round 3 Q6 (importing existing data). The data flow they
 4. **When to export.** The export replaces the **staff workbook** (the user calls it the collection workbook), never the main database. It runs once at the start of each year, after a final check. A mid-year re-export is only done straight after a check and copy-over.
 5. **The No. column.** The user thinks No. is typed by hand, and some rows may have none. The user asked which sheets have a No. column. That isn't recorded in these notes (the workbooks aren't in the repo), and round 13 Q3 removes the dependency on it.
 
-## Open questions (round 13)
+## Settled (round 13)
 
-1. **Compare against what was exported, not against today's main database.** If IREx Admin updates a status in the main database after the export, comparing against the live main database would flag that row yellow even though no one on the staff side touched it. Recommended: the export saves a hidden snapshot of what it wrote (in the admin-only folder). The check compares the staff workbook with that snapshot, so yellow means **"staff changed this since the export"**. New rows are still matched against the live main database by title or DOI, to catch rows that have already been copied over.
-2. **What counts as a change.** Recommended: the check ignores these differences:
-   - leading and trailing spaces, double spaces, and line-break differences (e.g. in TTSH Contributor)
-   - upper or lower case
-   - date formatting ("20 Aug 25" against 20/08/2025, or an Excel serial number), which is compared as a date
-   - number formatting (1,000 against 1000)
-   - empty cells against "(blank)"
+1. **No snapshot. The check compares against today's main database.** If IREx Admin edits a row in the main database after the export, that row shows up yellow. That's accepted.
+2. **What counts as a change.** The check ignores spaces at the start and end, double spaces and line-break differences, upper or lower case, date formatting (compared as dates), number formatting, and empty against "(blank)". Everything else is flagged, and each yellow cell has a comment showing the old value. Edge cases are handled as proposed in round 13 Q2.
+3. **Export ID.** The export writes a hidden Export ID on every row. Matching uses it, not No. The export lists main database rows that have no No.
+4. **File name.** The user wants the file named like the current collection file, `IREX_Rehab_Med_Data_Collection_CY2026.xlsm`. See round 14 Q2.
 
-   Everything else is flagged, including a one-letter spelling fix, because the check can't tell a typo fix from a real correction. Each yellow cell has a comment showing its old value, so a trivial change can be dismissed at a glance. Other edge cases:
-   - Staff sort or filter the sheet: rows are matched by key, not position, so nothing breaks.
-   - Rows that are blank or hold only spaces: ignored.
-   - Columns staff add, and anything typed outside the exported columns: ignored, but listed on the summary sheet.
-   - Two people edit the same row: only the final value is seen.
-   - Someone clears an existing row's key or deletes the row: it's listed on the summary sheet.
-   - Admin-only columns (e.g. JIF percentile) aren't exported, so they're never compared.
-3. **An export ID instead of No.** Recommended: don't depend on No. at all. The export writes a hidden *Export ID* on every row, in both the staff workbook and the snapshot, and the check matches on that. Rows without an Export ID are new. The highlighted copy also shows each record's main database No. (if it has one) and title, so IREx Admin can find it. The export lists main database rows that have no No., to be filled in whenever convenient. Nothing in the main database has to change first.
-4. **Name for the file staff fill in.** The user calls it the "collection workbook". These notes have said "staff input workbook" and "staff workbook". Recommended: settle on **Collection Workbook**, and add it, along with **Main Database**, to the glossary.
+## Open questions (round 14)
+
+1. **A small ID lookup for the Export ID.** With no snapshot, the check still needs to know which main database record each Export ID belongs to, and the main database itself can't be changed. Recommended: the export saves a small lookup file in the admin-only folder that lists each Export ID with its tab, No. and title, and nothing else. The check uses it to find the record in today's main database, by No. if there is one, otherwise by title. If IREx Admin has since changed a record's title and it has no No., that row is listed as "can't find in main database".
+2. **File name and Family Groups.** Recommended: `IREX_Rehab_Med_Data_Collection_CY<year>.xlsx`, the current name with the chosen year and .xlsx, because it has no macros. "Collection Workbook" is the term used in conversation and docs. Question: the current name says *Rehab_Med*. Are there separate collection files today for Rehab AHS, Rehab Nursing and MSW? If so, either one shared file replaces them all (named e.g. `IREX_Rehab_Data_Collection_CY<year>.xlsx`), or there's one file per Family Group, each exported with only that group's rows.
+3. **Shared understanding of the Collection Workbook design.** The summary below is for the user to confirm. The Form part is parked until later.
+
+## Collection Workbook design (draft for confirmation)
+
+**The Collection Workbook**
+- One shared .xlsx in a SharePoint folder that Rehab Staff can edit. It has no macros.
+- It holds the chosen year's records from the main database: the same tabs and columns as today, minus the team-only tabs and the finance and admin columns. Grant Amount, Amount Awarded to TTSH and Talent Development amounts stay. There's one Projects tab, and a hidden Export ID on every row.
+- A note at the top of each sheet tells staff how to find their records: Ctrl+F or the filter arrow, choosing Sheet View if Excel offers it.
+- Staff add new rows below the existing ones, anywhere on the sheet, and edit their own existing rows, for example to update a status.
+
+**Reminders**
+- Two Power Automate flows, both linking to the Collection Workbook and sending to an address list that IREx Admin keeps:
+  - a scheduled quarterly reminder
+  - one IREx Admin runs when needed (about two weeks before a KPI Review, and before 31 Dec)
+
+**Main database: one new VBA module, no sheet changes**
+- **Export Staff Copy** asks which year to export.
+  - Research Outputs and Education are included by date in that year, and Talent Development by Year.
+  - Projects are included when LOA start ≤ 31 Dec and LOA end ≥ 1 Jan (or there's no end), plus Applied projects with no LOA.
+  - It lists rows with unreadable dates (and includes them) and rows with no No.
+  - It writes the Collection Workbook and the ID lookup.
+  - It runs once at the start of each year, after a final check. A mid-year re-export only happens straight after a check and copy-over.
+- **Check Collection Workbook** reads every filled row on each sheet, inside or below the table, and compares it with today's main database. Formatting differences are ignored. It saves a highlighted copy in the admin-only folder:
+  - **green** = new
+  - **yellow** = changed, with the changed cells in bold and a comment showing the old value
+  - "already recorded as No. X" on unnumbered rows whose title or DOI matches an existing record
+  - a summary sheet with counts, deleted rows and extra columns
+- IREx Admin copies rows into the main database by hand. Nothing writes into the main database automatically.
+
+**Parked (Form, later):** a Microsoft Form (or Power Apps, if available) feeding a Submissions workbook, with an Import Submissions macro. The question lists for each activity type are settled in rounds 8, 9 and 11, and names are left for the Submitter to fill in. Still open: whether Power Apps is available, and the Category of Article values.
 
 ## Platform facts checked
 
@@ -217,11 +239,11 @@ These were looked up during the interview, so they don't need to be put to the u
 
 ## Not yet asked
 
-These come after round 13:
+These come after round 14:
 
 - Category of Article values for the Publication question (needed from the user).
 - Power Apps: the user hasn't checked make.powerapps.com yet.
 
 ## Next session
 
-Resume by putting round 13 to the user again; [handoff.md](handoff.md) says how.
+Resume by putting round 14 to the user again; [handoff.md](handoff.md) says how.
