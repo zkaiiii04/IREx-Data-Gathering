@@ -175,27 +175,33 @@ The user questioned old round 3 Q6 (importing existing data). The data flow they
 6. **Names on the Form (later).** Each name column (TTSH Contributor, presenter Full Name, Media Full name, Talent Development Name, Education Trainers, PI) is a question on the Form, left blank for the Submitter to fill in. The name columns arrive holding exactly what the Submitter typed. *Submitted by* is still recorded from the sign-in. This replaces round 5's "no Rehab Staff involved box" and the round 9–10 "IREx Admin fills names".
 7. **Build order** as proposed: Export Staff Copy → shared staff workbook → reminder flows → Check Staff Workbook. The Form comes later. **Export Staff Copy asks IREx Admin which year to export.** Projects are exported if they start in that year, are still ongoing in it, or were completed in it.
 
-## Open questions (round 12)
+## Settled (round 12)
 
-1. **What Check Staff Workbook marks.** Recommended:
-   - It saves a copy (e.g. "Staff workbook – checked 2026-11-02.xlsx") in the admin-only folder. The shared file itself is never touched.
-   - **Green** row: new. It has no No., and its title and DOI don't match any record in the main database.
-   - **Yellow** row: changed. Its No. exists, but some values differ from the main database. The changed cells are also in bold.
-   - A row with no No. whose title or DOI matches a main database record isn't marked as new. Its note column says "already recorded as No. X", and its differences show in yellow like a changed row. This covers rows IREx Admin has already copied over, and status updates typed as new rows.
-   - A summary sheet counts the new and changed rows per tab, and lists any existing records that are missing from the staff workbook (deleted by someone).
-2. **Visibility in the shared file.** Two things can be meant:
-   - **Sorting and filtering.** With Sheet View, a filter or sort applies only to the person who set it. Excel usually asks "just me or everyone?" when others are in the file.
-   - **Content.** Anyone who can edit the shared file sees every row, including what others typed and the existing records. One shared file can't hide rows per person. The only ways to do that are separate copies per person, which brings back merging, or the Form.
+1. **What the check marks.** Green rows are new and yellow rows are changed, as proposed. The user asked how far "changed" goes, because small spelling or spacing edits would get flagged: round 13 Q1 and Q2.
+2. **Shared file visibility.** Sheet View is what the user wants. Everyone can see the content of the shared file, and that's accepted.
+3. **Export year rule** as proposed. Research Outputs and Education go by date in Y, and Talent Development by Year = Y. Projects are included if LOA start ≤ 31 Dec Y and LOA end ≥ 1 Jan Y (or there's no end), plus Applied projects that have no LOA yet. Rows with unreadable dates are included and listed for fixing.
+4. **When to export.** The export replaces the **staff workbook** (the user calls it the collection workbook), never the main database. It runs once at the start of each year, after a final check. A mid-year re-export is only done straight after a check and copy-over.
+5. **The No. column.** The user thinks No. is typed by hand, and some rows may have none. The user asked which sheets have a No. column. That isn't recorded in these notes (the workbooks aren't in the repo), and round 13 Q3 removes the dependency on it.
 
-   Recommended: accept this. Staff can see each other's records today in the emailed copy, and the sensitive project finance columns are gone. The note at the top of each sheet tells staff to use Sheet View.
-3. **The export's year rule.** For the chosen year Y, recommended:
-   - **Research Outputs:** date in Y.
-   - **Education:** date in Y.
-   - **Talent Development:** Year = Y.
-   - **Projects:** LOA start ≤ 31 Dec Y, and either LOA end ≥ 1 Jan Y or no LOA end. Projects with status Applied and no LOA yet are also included.
-   - **Unreadable dates** (text dates, Excel serial numbers, "(blank)"): those rows are included rather than hidden, and listed for IREx Admin to fix.
-4. **When to export.** The export replaces the shared file, and anything staff typed since the last check and copy-over would be lost. Recommended: export once at the start of each year, after a final check of the previous year's file. During the year the same file stays up. IREx Admin can re-export mid-year to show staff their corrections, but only straight after a check and copy-over.
-5. **The No. column as the record key.** Matching depends on No. being unique and never changing. Recommended: if No. is typed by hand, keep doing that: each new row copied into the main database gets the next number. If No. is a formula (e.g. =ROW()-1), the export uses a separate hidden key, because a formula number changes when the table is sorted. The user needs to say which it is.
+## Open questions (round 13)
+
+1. **Compare against what was exported, not against today's main database.** If IREx Admin updates a status in the main database after the export, comparing against the live main database would flag that row yellow even though no one on the staff side touched it. Recommended: the export saves a hidden snapshot of what it wrote (in the admin-only folder). The check compares the staff workbook with that snapshot, so yellow means **"staff changed this since the export"**. New rows are still matched against the live main database by title or DOI, to catch rows that have already been copied over.
+2. **What counts as a change.** Recommended: the check ignores these differences:
+   - leading and trailing spaces, double spaces, and line-break differences (e.g. in TTSH Contributor)
+   - upper or lower case
+   - date formatting ("20 Aug 25" against 20/08/2025, or an Excel serial number), which is compared as a date
+   - number formatting (1,000 against 1000)
+   - empty cells against "(blank)"
+
+   Everything else is flagged, including a one-letter spelling fix, because the check can't tell a typo fix from a real correction. Each yellow cell has a comment showing its old value, so a trivial change can be dismissed at a glance. Other edge cases:
+   - Staff sort or filter the sheet: rows are matched by key, not position, so nothing breaks.
+   - Rows that are blank or hold only spaces: ignored.
+   - Columns staff add, and anything typed outside the exported columns: ignored, but listed on the summary sheet.
+   - Two people edit the same row: only the final value is seen.
+   - Someone clears an existing row's key or deletes the row: it's listed on the summary sheet.
+   - Admin-only columns (e.g. JIF percentile) aren't exported, so they're never compared.
+3. **An export ID instead of No.** Recommended: don't depend on No. at all. The export writes a hidden *Export ID* on every row, in both the staff workbook and the snapshot, and the check matches on that. Rows without an Export ID are new. The highlighted copy also shows each record's main database No. (if it has one) and title, so IREx Admin can find it. The export lists main database rows that have no No., to be filled in whenever convenient. Nothing in the main database has to change first.
+4. **Name for the file staff fill in.** The user calls it the "collection workbook". These notes have said "staff input workbook" and "staff workbook". Recommended: settle on **Collection Workbook**, and add it, along with **Main Database**, to the glossary.
 
 ## Platform facts checked
 
@@ -211,11 +217,11 @@ These were looked up during the interview, so they don't need to be put to the u
 
 ## Not yet asked
 
-These come after round 12:
+These come after round 13:
 
 - Category of Article values for the Publication question (needed from the user).
 - Power Apps: the user hasn't checked make.powerapps.com yet.
 
 ## Next session
 
-Resume by putting round 12 to the user again; [handoff.md](handoff.md) says how.
+Resume by putting round 13 to the user again; [handoff.md](handoff.md) says how.
