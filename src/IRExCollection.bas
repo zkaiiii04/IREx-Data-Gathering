@@ -15,6 +15,10 @@ Private Const XL_SINGLE_SHEET As Long = -4167   ' xlWBATWorksheet
 Private Const XL_UP As Long = -4162
 Private Const HEADER_ROW As Long = 3            ' Collection Workbook header row
 Private Const MAX_HEADER_SCAN As Long = 30
+Private Const MAX_COLUMN_WIDTH As Double = 60
+Private Const EXPORT_ID_HEADER As String = "Export ID"
+Private Const ROOM_FOR_NEW_ROWS As Long = 500   ' blank rows under the export that get the dropdowns
+Private Const XL_VALIDATE_LIST As Long = 3
 
 ' How a tab picks the records of a year.
 Private Const RULE_DATE As Long = 1             ' its date falls in the year
@@ -40,6 +44,7 @@ Private Type TabSpec
     Rule As Long
     DateHeader As String
     YearHeader As String
+    NameColumn As String        ' where Rehab Staff look for their name (for the note)
 End Type
 
 ' A block of records read from a sheet: one header row and the filled rows under it.
@@ -84,24 +89,96 @@ Public Function RunExportStaffCopy(ByVal calendarYear As Long, ByVal mainDatabas
 End Function
 
 Private Sub ExportTab(ByVal mainDatabase As Object, ByRef spec As TabSpec, ByVal calendarYear As Long, ByVal ws As Object)
-    Dim src As SheetRows
+    Dim src As SheetRows, srcSheet As Object
+    ws.Cells(1, 1).Value = FindYourRecordsNote(spec)
     src = ReadMainSheet(mainDatabase, spec)
     If Not src.Found Then Exit Sub
+    Set srcSheet = mainDatabase.Worksheets(spec.SheetName)
 
-    Dim cols() As Long, n As Long, c As Long, r As Long, outRow As Long
+    Dim cols() As Long, n As Long, c As Long, r As Long, outRow As Long, idCol As Long
     n = ExportColumns(spec, src, cols)
+    idCol = n + 1
     For c = 1 To n
         ws.Cells(HEADER_ROW, c).Value = src.Headers(cols(c))
+        ws.Columns(c).ColumnWidth = Application.WorksheetFunction.Min(srcSheet.Columns(src.Cols(cols(c))).ColumnWidth, MAX_COLUMN_WIDTH)
+        ws.Columns(c).Hidden = srcSheet.Columns(src.Cols(cols(c))).Hidden
     Next c
+    ws.Cells(HEADER_ROW, idCol).Value = EXPORT_ID_HEADER
+    ws.Columns(idCol).Hidden = True
+
     outRow = HEADER_ROW
     For r = 1 To src.RowCount
         If Pick(spec, src, r, calendarYear) <> PICK_OUT Then
             outRow = outRow + 1
             For c = 1 To n
+                CopyNumberFormat srcSheet.Cells(src.RowNums(r), src.Cols(cols(c))), ws.Cells(outRow, c)
                 WriteValue ws.Cells(outRow, c), src.Values(r, cols(c))
             Next c
+            ws.Cells(outRow, idCol).Value = spec.Prefix & "-" & Format(outRow - HEADER_ROW, "0000")
         End If
     Next r
+
+    Dim list As String
+    For c = 1 To n
+        If src.RowCount > 0 Then
+            list = DropdownList(srcSheet.Cells(src.RowNums(1), src.Cols(cols(c))))
+            If list <> "" Then AddDropdown ws.Range(ws.Cells(HEADER_ROW + 1, c), ws.Cells(outRow + ROOM_FOR_NEW_ROWS, c)), list
+        End If
+    Next c
+    MakeTable ws, spec, Application.WorksheetFunction.Max(outRow, HEADER_ROW + 1), idCol
+End Sub
+
+' The cell's dropdown as a fixed list: the list typed into its validation, or
+' the values of the range its validation refers to (such as tbllist_PrjStatus).
+Private Function DropdownList(ByVal cell As Object) As String
+    Dim kind As Long, f As String, target As Object, c As Object, s As String
+    On Error Resume Next
+    kind = cell.Validation.Type
+    If Err.Number <> 0 Or kind <> XL_VALIDATE_LIST Then Exit Function
+    f = cell.Validation.Formula1
+    On Error GoTo 0
+    If Left(f, 1) <> "=" Then
+        DropdownList = f
+        Exit Function
+    End If
+    On Error Resume Next
+    Set target = cell.Worksheet.Evaluate(Mid(f, 2))
+    If target Is Nothing Then Set target = cell.Worksheet.Parent.Names(Mid(f, 2)).RefersToRange
+    On Error GoTo 0
+    If target Is Nothing Then Exit Function
+    For Each c In target.Cells
+        If Not IsBlank(c.Value) Then s = s & "," & CellText(c.Value)
+    Next c
+    DropdownList = Mid(s, 2)
+End Function
+
+Private Sub AddDropdown(ByVal target As Object, ByVal list As String)
+    On Error Resume Next
+    target.Validation.Delete
+    target.Validation.Add Type:=XL_VALIDATE_LIST, AlertStyle:=1, Operator:=1, Formula1:=list
+    Err.Clear
+End Sub
+
+Private Sub MakeTable(ByVal ws As Object, ByRef spec As TabSpec, ByVal lastRow As Long, ByVal lastCol As Long)
+    Dim t As Object
+    On Error Resume Next        ' LibreOffice has no ListObjects; the sheet works without one
+    Set t = ws.ListObjects.Add(1, ws.Range(ws.Cells(HEADER_ROW, 1), ws.Cells(lastRow, lastCol)), , 1)
+    If Not t Is Nothing Then t.Name = "Collection_" & spec.Prefix
+    Err.Clear
+End Sub
+
+Private Function FindYourRecordsNote(ByRef spec As TabSpec) As String
+    FindYourRecordsNote = "How to find your records: if Excel offers Sheet View (View > Sheet View > New), choose it first, " & _
+        "so that your sorting and filtering don't change what colleagues see. Then press Ctrl+F and search for your name, " & _
+        "or use the filter arrow on the " & spec.NameColumn & " column. " & _
+        "To report something new, type it in a new row below the existing ones. " & _
+        "If something has changed, such as a status, update your existing row."
+End Function
+
+Private Sub CopyNumberFormat(ByVal fromCell As Object, ByVal toCell As Object)
+    Dim f As String
+    f = fromCell.NumberFormat
+    If f <> "" And LCase(f) <> "general" Then toCell.NumberFormat = f
 End Sub
 
 ' The source columns a tab exports, in order. Returns how many.
@@ -194,34 +271,34 @@ End Function
 
 Private Sub LoadTabs()
     With mTabs(1)
-        .Title = "Publications": .Prefix = "PUB"
+        .Title = "Publications": .NameColumn = "TTSH Contributor": .Prefix = "PUB"
         .SheetName = "DB_Publications": .TableName = "tbl_Publication": .Anchor = "title of article"
         .Drop = "journal category & jif percentile listing*|jif percentile*"
         .Rule = RULE_DATE: .DateHeader = "date of publication"
     End With
     With mTabs(2)
-        .Title = "Poster & Oral Presentation": .Prefix = "PRES"
+        .Title = "Poster & Oral Presentation": .NameColumn = "Full Name": .Prefix = "PRES"
         .SheetName = "DB_Poster& Oral Presentation": .TableName = "tbl_PosterOralPresentation"
         .Anchor = "title of presentation/topic"
         .Rule = RULE_DATE: .DateHeader = "date of presentation"
     End With
     With mTabs(3)
-        .Title = "Media": .Prefix = "MED"
+        .Title = "Media": .NameColumn = "Full name": .Prefix = "MED"
         .SheetName = "DB_Media": .TableName = "": .Anchor = "platform of media"
         .Rule = RULE_DATE: .DateHeader = "media publishing date"
     End With
     With mTabs(4)
-        .Title = "Talent Development": .Prefix = "TD"
+        .Title = "Talent Development": .NameColumn = "Name": .Prefix = "TD"
         .SheetName = "DB_Talent Develop": .TableName = "tbl_TalentDevelop": .Anchor = "award description"
         .Rule = RULE_YEAR: .YearHeader = "year"
     End With
     With mTabs(5)
-        .Title = "Education": .Prefix = "EDU"
+        .Title = "Education": .NameColumn = "Trainer(s)/Speaker(s)": .Prefix = "EDU"
         .SheetName = "DB_Education": .TableName = "tbl_Education": .Anchor = "title of course*"
         .Rule = RULE_YEAR_THEN_DATE: .YearHeader = "year": .DateHeader = "date/year/period"
     End With
     With mTabs(6)
-        .Title = "Projects": .Prefix = "PRJ"
+        .Title = "Projects": .NameColumn = "PI or Co-I/Collaborator": .Prefix = "PRJ"
         .SheetName = "DB_PrjGeneralInfo": .TableName = "tbl_PrjGeneralInfo": .Anchor = "project name"
         .Only = "grant ref no|project name|category|grant / collaborator partners|grant type|pi|" & _
                 "co-i/collaborator|loa start date|loa end date|grant amount|grant amt (awarded to ttsh)|status"

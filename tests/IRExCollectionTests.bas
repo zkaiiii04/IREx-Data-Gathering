@@ -57,7 +57,17 @@ Private Function TestNames() As Variant
         "Export_takes_Presentations_and_Media_Appearances_whose_date_falls_in_the_year", _
         "Export_takes_Talent_Developments_whose_Year_is_the_year", _
         "Export_takes_Education_Activities_by_Year_or_by_date_when_Year_is_empty", _
-        "Export_takes_Projects_live_during_the_year_and_Applied_ones_with_no_LOA")
+        "Export_takes_Projects_live_during_the_year_and_Applied_ones_with_no_LOA", _
+        "Export_keeps_every_Publications_column_but_the_four_JIF_columns", _
+        "Export_keeps_columns_hidden_that_are_hidden_in_the_Main_Database", _
+        "Export_keeps_only_the_columns_a_submitter_needs_on_Projects", _
+        "Export_keeps_every_column_on_the_other_tabs", _
+        "Export_writes_No_as_plain_values", _
+        "Export_writes_a_hidden_unique_Export_ID_on_every_row", _
+        "Export_keeps_text_that_looks_like_a_number_or_date_as_text", _
+        "Export_puts_a_how_to_find_your_records_note_above_each_table", _
+        "Export_carries_the_dropdown_lists_over_as_fixed_lists", _
+        "Export_puts_the_rows_in_an_Excel_table")
 End Function
 
 Private Sub Setup(ByVal fixtures As String, ByVal outDir As String, ByVal inLibreOffice As Boolean)
@@ -79,6 +89,16 @@ Private Sub Dispatch(ByVal name As String)
         Case "Export_takes_Talent_Developments_whose_Year_is_the_year": Export_takes_Talent_Developments_whose_Year_is_the_year
         Case "Export_takes_Education_Activities_by_Year_or_by_date_when_Year_is_empty": Export_takes_Education_Activities_by_Year_or_by_date_when_Year_is_empty
         Case "Export_takes_Projects_live_during_the_year_and_Applied_ones_with_no_LOA": Export_takes_Projects_live_during_the_year_and_Applied_ones_with_no_LOA
+        Case "Export_keeps_every_Publications_column_but_the_four_JIF_columns": Export_keeps_every_Publications_column_but_the_four_JIF_columns
+        Case "Export_keeps_columns_hidden_that_are_hidden_in_the_Main_Database": Export_keeps_columns_hidden_that_are_hidden_in_the_Main_Database
+        Case "Export_keeps_only_the_columns_a_submitter_needs_on_Projects": Export_keeps_only_the_columns_a_submitter_needs_on_Projects
+        Case "Export_keeps_every_column_on_the_other_tabs": Export_keeps_every_column_on_the_other_tabs
+        Case "Export_writes_No_as_plain_values": Export_writes_No_as_plain_values
+        Case "Export_writes_a_hidden_unique_Export_ID_on_every_row": Export_writes_a_hidden_unique_Export_ID_on_every_row
+        Case "Export_keeps_text_that_looks_like_a_number_or_date_as_text": Export_keeps_text_that_looks_like_a_number_or_date_as_text
+        Case "Export_puts_a_how_to_find_your_records_note_above_each_table": Export_puts_a_how_to_find_your_records_note_above_each_table
+        Case "Export_carries_the_dropdown_lists_over_as_fixed_lists": Export_carries_the_dropdown_lists_over_as_fixed_lists
+        Case "Export_puts_the_rows_in_an_Excel_table": Export_puts_the_rows_in_an_Excel_table
         Case Else: Fail "no such test"
     End Select
 End Sub
@@ -86,11 +106,7 @@ End Sub
 Private Sub RunTest(ByVal name As String)
     mFailures = ""
     mSkips = ""
-    Err.Clear
-    On Error Resume Next
-    Dispatch name
-    If Err.Number <> 0 Then Fail "ERROR " & Err.Number & ": " & Err.Description
-    On Error GoTo 0
+    RunGuarded name
     CloseTestWorkbooks
     mCount = mCount + 1
     If mCount > UBound(mNames) Then
@@ -106,6 +122,15 @@ Private Sub RunTest(ByVal name As String)
         mOutcomes(mCount) = "PASS"
         If mSkips <> "" Then mMessages(mCount) = "skipped in LibreOffice: " & Mid(mSkips, 3)
     End If
+End Sub
+
+' Runs a test, recording an error that escapes it as a failure.
+Private Sub RunGuarded(ByVal name As String)
+    On Error GoTo escaped
+    Dispatch name
+    Exit Sub
+escaped:
+    Fail "ERROR " & Err.Number & ": " & Err.Description
 End Sub
 
 Private Sub WriteResultsSheet()
@@ -199,6 +224,136 @@ Private Sub Export_takes_Projects_live_during_the_year_and_Applied_ones_with_no_
         ColumnText(cw.Worksheets("Projects"), "Project Name"), "projects"
 End Sub
 
+Private Sub Export_keeps_every_Publications_column_but_the_four_JIF_columns()
+    Dim cw As Object
+    Set cw = OpenWorkbook(ExportFixture(2025))
+    AssertEqual Squash("No.|Title of Article|1st Author Name|TTSH Contributor|Status|Date of Publication|pmid|Journal Citation|" & _
+        "Associated Research/Innovation Project (If applicable)|Full Author Listing (Optional)|DOI|Category of Article|" & _
+        "Other Remarks|Journal Name|Export ID"), HeaderList(cw.Worksheets("Publications")), "Publications headers"
+End Sub
+
+Private Sub Export_keeps_columns_hidden_that_are_hidden_in_the_Main_Database()
+    Dim cw As Object
+    Set cw = OpenWorkbook(ExportFixture(2025))
+    AssertEqual Squash("Associated Research/Innovation Project (If applicable)|Full Author Listing (Optional)|" & _
+        "Category of Article|Other Remarks|Export ID"), HiddenHeaders(cw.Worksheets("Publications")), "hidden on Publications"
+    AssertEqual Squash("Title of Related Research, Innovation Projects /Programmes|Export ID"), _
+        HiddenHeaders(cw.Worksheets("Poster & Oral Presentation")), "hidden on Presentations"
+    AssertEqual "export id", HiddenHeaders(cw.Worksheets("Media")), "hidden on Media"
+End Sub
+
+Private Sub Export_keeps_only_the_columns_a_submitter_needs_on_Projects()
+    Dim cw As Object
+    Set cw = OpenWorkbook(ExportFixture(2025))
+    AssertEqual Squash("Grant Ref No|Project Name|Category|Grant / Collaborator Partners|Grant Type|PI|Co-I/Collaborator|" & _
+        "LOA Start Date|LOA End Date|Grant Amount|Grant Amt (Awarded to TTSH)|Status|Export ID"), _
+        HeaderList(cw.Worksheets("Projects")), "Projects headers"
+    AssertEqual "500000|80000|250000|60000|90000|30000", ColumnText(cw.Worksheets("Projects"), "Grant Amount"), "Grant Amount"
+End Sub
+
+Private Sub Export_keeps_every_column_on_the_other_tabs()
+    Dim cw As Object
+    Set cw = OpenWorkbook(ExportFixture(2025))
+    AssertEqual Squash("No.|Title of Presentation/Topic|Full Name|Status|Date of Presentation|Start Date of Event|End Date of Event|" & _
+        "Title of Related Research, Innovation Projects /Programmes|Name of Conference/ Symposium/ Seminar|Name of Organisation|" & _
+        "Country where the conference/sympoisum/Seminar was held|Other Remarks|Export ID"), _
+        HeaderList(cw.Worksheets("Poster & Oral Presentation")), "Presentations"
+    AssertEqual Squash("No.|Full name|Platform of Media|Media Publishing Date|" & _
+        "Title of Media Published & Description (Briefly provide the description and or purpose of the published media)|" & _
+        "Name of Media Published Source (For eg The Straits Times or online eg ChannelnewsAsia.com)|" & _
+        "Website link to media/ Source (If applicable)|Associated Project Title (If applicable)|Other Remarks|Export ID"), _
+        HeaderList(cw.Worksheets("Media")), "Media"
+    AssertEqual Squash("Name|Family Group|Award Description|Project Name|LOA Start Date|LOA End Date|Grant Amount|Year|Category|Export ID"), _
+        HeaderList(cw.Worksheets("Talent Development")), "Talent Development"
+    AssertEqual "50000|-|-", ColumnText(cw.Worksheets("Talent Development"), "Grant Amount"), "Talent Development Grant Amount"
+    AssertEqual Squash("Date/Year/Period|Year|Type of Material/Event|" & _
+        "Area(s) of Focus (Professional vs Patients/Care Givers/General Public)|" & _
+        "Title of Course/Educational Materials/Educational Events/Outreach|Family Group|Trainer(s)/Speaker(s)|" & _
+        "Collaboration Partner(s), if any|Number of Participants, if applicable|Local/Overseas|Country (if overseas)|Organisers|Export ID"), _
+        HeaderList(cw.Worksheets("Education")), "Education"
+End Sub
+
+' No. is a formula in the Main Database; the export writes the numbers it shows.
+Private Sub Export_writes_No_as_plain_values()
+    Dim cw As Object
+    Set cw = OpenWorkbook(ExportFixture(2025))
+    AssertEqual "1|2|3|5", ColumnText(cw.Worksheets("Media"), "No."), "Media No."
+    AssertEqual "1|3|4|5|6", ColumnText(cw.Worksheets("Publications"), "No."), "Publications No."
+    AssertEqual "1|2|4", ColumnText(cw.Worksheets("Poster & Oral Presentation"), "No."), "Presentations No."
+    AssertEqual False, HeaderCell(cw.Worksheets("Media"), "No.").Offset(1, 0).HasFormula, "Media No. is not a formula"
+End Sub
+
+Private Sub Export_writes_a_hidden_unique_Export_ID_on_every_row()
+    Dim cw As Object
+    Set cw = OpenWorkbook(ExportFixture(2025))
+    AssertEqual "PUB-0001|PUB-0002|PUB-0003|PUB-0004|PUB-0005", ColumnText(cw.Worksheets("Publications"), "Export ID"), "Publications"
+    AssertEqual "PRES-0001|PRES-0002|PRES-0003", ColumnText(cw.Worksheets("Poster & Oral Presentation"), "Export ID"), "Presentations"
+    AssertEqual "MED-0001|MED-0002|MED-0003|MED-0004", ColumnText(cw.Worksheets("Media"), "Export ID"), "Media"
+    AssertEqual "TD-0001|TD-0002|TD-0003", ColumnText(cw.Worksheets("Talent Development"), "Export ID"), "Talent Development"
+    AssertEqual "EDU-0001|EDU-0002|EDU-0003|EDU-0004|EDU-0005|EDU-0006", ColumnText(cw.Worksheets("Education"), "Export ID"), "Education"
+    AssertEqual "PRJ-0001|PRJ-0002|PRJ-0003|PRJ-0004|PRJ-0005|PRJ-0006", ColumnText(cw.Worksheets("Projects"), "Export ID"), "Projects"
+End Sub
+
+Private Sub Export_keeps_text_that_looks_like_a_number_or_date_as_text()
+    Dim cw As Object, ws As Object
+    Set cw = OpenWorkbook(ExportFixture(2025))
+    Set ws = cw.Worksheets("Publications")
+    AssertEqual "20 Aug 25", CellUnder(ws, "Date of Publication", 2), "text date"
+    AssertEqual vbString, VarType(CellUnder(ws, "Date of Publication", 2)), "text date stays text"
+    AssertEqual "(blank)", CellUnder(ws, "Date of Publication", 3), "(blank)"
+    AssertEqual "45700", CellUnder(ws, "Date of Publication", 4), "date number stored as text"
+    AssertEqual vbString, VarType(CellUnder(ws, "Date of Publication", 4)), "date number stays text"
+    AssertEqual DateSerial(2025, 3, 10), CellUnder(ws, "Date of Publication", 1), "real date"
+    AssertEqual "Tan Wei Ling" & vbLf & "Goh Mei Xin", CellUnder(ws, "TTSH Contributor", 1), "line breaks kept"
+End Sub
+
+Private Sub Export_puts_a_how_to_find_your_records_note_above_each_table()
+    Dim cw As Object, ws As Object, note As String
+    Set cw = OpenWorkbook(ExportFixture(2025))
+    For Each ws In cw.Worksheets
+        note = CStr(ws.Range("A1").Value)
+        AssertTrue InStr(note, "Ctrl+F") > 0, ws.Name & ": note mentions Ctrl+F"
+        AssertTrue InStr(note, "filter arrow") > 0, ws.Name & ": note mentions the filter arrow"
+        AssertTrue InStr(note, "Sheet View") > 0, ws.Name & ": note mentions Sheet View"
+        AssertTrue HeaderCell(ws, "Export ID").Row > 1, ws.Name & ": table is below the note"
+    Next ws
+End Sub
+
+' Education's lists are typed into the Main Database's validation; Project
+' Status refers to tbllist_PrjStatus. Rows typed below the export get them too.
+Private Sub Export_carries_the_dropdown_lists_over_as_fixed_lists()
+    Dim cw As Object, edu As Object
+    Set cw = OpenWorkbook(ExportFixture(2025))
+    Set edu = cw.Worksheets("Education")
+    AssertEqual "", ListOf(edu, "Title of Course/Educational Materials/Educational Events/Outreach", 1), "no list where the Main Database has none"
+    If mInLibreOffice Then
+        Skip "dropdown lists (LibreOffice reads them in its own form)"
+        Exit Sub
+    End If
+    AssertTrue InStr(ListOf(edu, "Type of Material/Event", 1), "Presentation/Sharing") > 0, "Education type list on the first row"
+    AssertTrue InStr(ListOf(edu, "Type of Material/Event", 20), "Webinar") > 0, "Education type list on a new row"
+    AssertTrue InStr(ListOf(edu, "Area(s) of Focus (Professional vs Patients/Care Givers/General Public)", 1), "Patients/Care Givers/General Public") > 0, "audience list"
+    AssertTrue InStr(ListOf(edu, "Local/Overseas", 1), "Overseas") > 0, "Local/Overseas list"
+    AssertEqual "Presented,Published,Pending,Applied,Under Review,Awarded,In Progress,Completed,Incomplete,Dropped," & _
+            "Applied (Oversight),Under Review (Oversight),Awarded (Oversight),In Progress (Oversight),Completed (Oversight)," & _
+        "Incompleted (Oversight),Dropped (Oversight)", ListOf(cw.Worksheets("Projects"), "Status", 1), "Project Status list"
+End Sub
+
+Private Sub Export_puts_the_rows_in_an_Excel_table()
+    Dim cw As Object, ws As Object
+    If mInLibreOffice Then
+        Skip "tables (LibreOffice has no ListObjects)"
+        Exit Sub
+    End If
+    Set cw = OpenWorkbook(ExportFixture(2025))
+    For Each ws In cw.Worksheets
+        AssertEqual 1, ws.ListObjects.Count, ws.Name & ": one table"
+        AssertEqual HeaderCell(ws, "Export ID").Row, ws.ListObjects(1).HeaderRowRange.Row, ws.Name & ": table header row"
+        AssertEqual ws.Cells(ws.Rows.Count, HeaderCell(ws, "Export ID").Column).End(-4162).Row, _
+            ws.ListObjects(1).Range.Row + ws.ListObjects(1).Range.Rows.Count - 1, ws.Name & ": table's last row"
+    Next ws
+End Sub
+
 ' ---------------------------------------------------------------------------
 ' Helpers: running the macros
 ' ---------------------------------------------------------------------------
@@ -287,6 +442,43 @@ Private Function ColumnText(ByVal ws As Object, ByVal header As String) As Strin
         s = s & "|" & Show(ws.Cells(r, h.Column).Value)
     Next r
     ColumnText = Mid(s, 2)
+End Function
+
+' The headers in the row holding "Export ID", squashed and "|"-separated.
+Private Function HeaderList(ByVal ws As Object) As String
+    HeaderList = HeadersWhere(ws, False)
+End Function
+
+Private Function HiddenHeaders(ByVal ws As Object) As String
+    HiddenHeaders = HeadersWhere(ws, True)
+End Function
+
+Private Function HeadersWhere(ByVal ws As Object, ByVal hiddenOnly As Boolean) As String
+    Dim h As Object, c As Long, s As String
+    Set h = HeaderCell(ws, "Export ID")
+    If h Is Nothing Then
+        HeadersWhere = "(no Export ID column)"
+        Exit Function
+    End If
+    For c = 1 To ws.UsedRange.Column + ws.UsedRange.Columns.Count - 1
+        If Squash(ws.Cells(h.Row, c).Value) <> "" Then
+            If Not hiddenOnly Or ws.Columns(c).Hidden Then s = s & "|" & Squash(ws.Cells(h.Row, c).Value)
+        End If
+    Next c
+    HeadersWhere = Mid(s, 2)
+End Function
+
+' The dropdown list on the cell n rows under a column's header, "" if none.
+Private Function ListOf(ByVal ws As Object, ByVal header As String, ByVal n As Long) As String
+    Dim h As Object
+    Set h = HeaderCell(ws, header)
+    If h Is Nothing Then
+        ListOf = "(no column " & header & ")"
+        Exit Function
+    End If
+    On Error Resume Next
+    If ws.Cells(h.Row + n, h.Column).Validation.Type = 3 Then ListOf = ws.Cells(h.Row + n, h.Column).Validation.Formula1
+    On Error GoTo 0
 End Function
 
 ' The value n rows under a column's header.
