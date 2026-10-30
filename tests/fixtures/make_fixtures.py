@@ -141,7 +141,11 @@ PRES = [
     ["Virtual reality balance training for older adults", "Raj Kumar", "Presented",
      D(2025, 2, 14), D(2025, 2, 13), D(2025, 2, 15), "VR Balance", "Test Falls Forum", None,
      "Singapore", None],
+    # No No. (the cell is empty): 2022, not exported, but listed in the export report
+    ["Return to work after stroke", "Lee Hui Min", "Presented", D(2022, 5, 5), D(2022, 5, 5),
+     D(2022, 5, 6), None, "Test Work Rehab Day", None, None, None],
 ]
+PRES_WITHOUT_NO = 5
 
 MEDIA = [
     # No. 1-3: one story carried by three outlets, in 2025
@@ -338,7 +342,8 @@ def make_main_database(path):
     for c, h in enumerate(PRES_HEADERS, start=2):
         pres.cell(1, c, h)
     for i, rec in enumerate(PRES, start=2):
-        pres.cell(i, 2, NO_FORMULA)
+        if i - 1 != PRES_WITHOUT_NO:
+            pres.cell(i, 2, NO_FORMULA)
         for c, v in enumerate(rec, start=3):
             pres.cell(i, c, v)
     add_table(pres, "tbl_PosterOralPresentation", f"B1:M{len(PRES) + 1}")

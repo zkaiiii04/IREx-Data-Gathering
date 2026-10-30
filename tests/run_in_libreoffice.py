@@ -1,6 +1,10 @@
 """Run the VBA tests headless in LibreOffice Calc (Linux, no Excel needed).
 
-    python3 tests/run_in_libreoffice.py [test name filter]
+    python3 tests/run_in_libreoffice.py [--trace] [test name filter]
+
+--trace numbers the statements of src/IRExCollection.bas as it loads them and,
+when a test errors, reports the last source line the module reached
+(LibreOffice gives no line numbers for runtime errors).
 
 Loads src/IRExCollection.bas and tests/IRExCollectionTests.bas into a hidden
 Calc document in VBA compatibility mode and runs each test through
@@ -41,8 +45,34 @@ def basic_source(path):
     """Excel's exported .bas, made loadable by LibreOffice Basic."""
     with open(path, encoding="cp1252") as f:
         lines = [l.rstrip("\r\n") for l in f]
-    lines = [l for l in lines if not l.startswith("Attribute VB_")]
-    return "Option VBASupport 1\n" + "\n".join(lines) + "\n"
+    # Attribute lines become blank so that line numbers match the file.
+    lines = ["" if l.startswith("Attribute VB_") else l for l in lines]
+    return "Option VBASupport 1\n" + "\n".join(lines[1:]) + "\n"
+
+
+NOT_STATEMENTS = ("case ", "case\t", "else", "elseif ", "end ", "loop", "next", "wend",
+                  "private ", "public ", "dim ", "const ", "option ", "type ", "'", "#")
+
+
+def traced(source):
+    """Puts "TraceLine = n" before each statement (n = line in the .bas file)."""
+    out, continued, in_type = [], False, False
+    for n, line in enumerate(source.split("\n"), start=1):
+        bare = line.strip().lower()
+        if bare.startswith(("private type", "public type", "type ")):
+            in_type = True
+        if in_type or continued or not bare or bare.startswith(NOT_STATEMENTS) \
+                or bare.endswith(":") or bare.startswith("select case"):
+            out.append(line)
+        else:
+            out.append(f"TraceLine = {n}: " + line.lstrip())
+        if bare.startswith("end type"):
+            in_type = False
+        continued = line.rstrip().endswith(" _")
+    text = "\n".join(out)
+    head, _, rest = text.partition("Option Explicit\n")
+    return (head + "Option Explicit\nPublic TraceLine As Long\n" + rest +
+            "\nPublic Function TraceLineHeadless() As Long\nTraceLineHeadless = TraceLine\nEnd Function\n")
 
 
 def close_others(desktop, keep):
@@ -65,7 +95,10 @@ def free_port():
 
 
 def main():
-    name_filter = sys.argv[1] if len(sys.argv) > 1 else ""
+    args = sys.argv[1:]
+    trace = "--trace" in args
+    args = [a for a in args if a != "--trace"]
+    name_filter = args[0] if args else ""
     port = free_port()
     profile = tempfile.mkdtemp(prefix="lo-profile-")
     out_dir = os.path.join(ROOT, "tests", "out")
@@ -96,7 +129,10 @@ def main():
         libs.VBACompatibilityMode = True
         lib = libs.getByName("Standard")
         for name, path in MODULES:
-            lib.insertByName(name, basic_source(path))
+            source = basic_source(path)
+            if trace and name == "IRExCollection":
+                source = traced(source)
+            lib.insertByName(name, source)
         provider = doc.getScriptProvider()
 
         def call(name, *args):
@@ -114,7 +150,7 @@ def main():
             sys.exit("The VBA modules don't compile (LibreOffice gives no details: "
                      "check the last edit, or open the modules in LibreOffice's Basic IDE)")
         for test in names.split("|"):
-            if name_filter and name_filter.lower() not in test.lower():
+            if name_filter and name_filter.lower().replace(" ", "_") not in test.lower():
                 continue
             # One test per call, closing every other document afterwards:
             # LibreOffice's Workbook.Close leaves documents open.
@@ -122,6 +158,11 @@ def main():
                 line = call("RunOneHeadless", fixtures, out_dir + os.sep, test)
             except Exception as e:  # a Basic runtime error escaped the test
                 line = f"ERROR  {test.replace('_', ' ')}\n      {e}"
+            if trace and "ERROR" in line:
+                where = provider.getScript(
+                    "vnd.sun.star.script:Standard.IRExCollection.TraceLineHeadless"
+                    "?language=Basic&location=document").invoke((), (), ())[0]
+                line += f"\n      last line reached in src/IRExCollection.bas: {where}"
             close_others(desktop, doc)
             lines.append(line)
             if line.startswith("PASS"):

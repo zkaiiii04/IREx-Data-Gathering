@@ -45,6 +45,10 @@ Private Type TabSpec
     DateHeader As String
     YearHeader As String
     NameColumn As String        ' where Rehab Staff look for their name (for the note)
+    NoHeader As String          ' "" if the tab has no No. column
+    TitleHeader As String
+    Key1Header As String        ' match key fields, kept in the ID lookup
+    Key2Header As String
 End Type
 
 ' A block of records read from a sheet: one header row and the filled rows under it.
@@ -61,6 +65,12 @@ Private Type SheetRows
 End Type
 
 Private mTabs(1 To 6) As TabSpec
+'Rows for the ID lookup and the export report. (Arrays, not Collections: in
+' LibreOffice a module-level Collection returns its array items as objects.)
+Private mLookup() As Variant
+Private mLookupCount As Long
+Private mReport() As Variant
+Private mReportCount As Long
 
 ' ===========================================================================
 ' Export Staff Copy
@@ -68,11 +78,18 @@ Private mTabs(1 To 6) As TabSpec
 
 ' Writes the Collection Workbook for year into collectionFolder and returns its
 ' path. The ID lookup and the export report go into adminFolder.
+' Writes the Collection Workbook for calendarYear into collectionFolder and
+' returns its path. The ID lookup and the export report go into adminFolder.
+' If the Collection Workbook already exists, it's replaced only when
+' replaceExisting is True; otherwise nothing is written and "" is returned.
 Public Function RunExportStaffCopy(ByVal calendarYear As Long, ByVal mainDatabase As Object, ByVal collectionFolder As String, ByVal adminFolder As String, Optional ByVal replaceExisting As Boolean = False) As String
-    LoadTabs
     Dim path As String
-    path = collectionFolder & COLLECTION_PREFIX & calendarYear & ".xlsx"
+    path = collectionFolder & CollectionName(calendarYear) & ".xlsx"
+    If FileExists(path) And Not replaceExisting Then Exit Function
 
+    LoadTabs
+    mLookupCount = 0
+    mReportCount = 0
     Dim cw As Object, i As Long, ws As Object
     Set cw = Workbooks.Add(XL_SINGLE_SHEET)
     For i = 1 To 6
@@ -84,15 +101,25 @@ Public Function RunExportStaffCopy(ByVal calendarYear As Long, ByVal mainDatabas
         ws.Name = mTabs(i).Title
         ExportTab mainDatabase, mTabs(i), calendarYear, ws
     Next i
-    SaveAndClose cw, path
+    cw.Worksheets(1).Activate
+    SaveNew cw, path
+    WriteLookup adminFolder & CollectionName(calendarYear) & " " & ChrW(8211) & " ID lookup.xlsx"
+    WriteExportReport adminFolder & CollectionName(calendarYear) & " " & ChrW(8211) & " export report " & Format(Now, "yyyy-mm-dd") & ".xlsx", calendarYear
     RunExportStaffCopy = path
+End Function
+
+Private Function CollectionName(ByVal calendarYear As Long) As String
+    CollectionName = COLLECTION_PREFIX & calendarYear
 End Function
 
 Private Sub ExportTab(ByVal mainDatabase As Object, ByRef spec As TabSpec, ByVal calendarYear As Long, ByVal ws As Object)
     Dim src As SheetRows, srcSheet As Object
     ws.Cells(1, 1).Value = FindYourRecordsNote(spec)
     src = ReadMainSheet(mainDatabase, spec)
-    If Not src.Found Then Exit Sub
+    If Not src.Found Then
+        ReportLine "Sheet or table not found", spec.Title, "", spec.SheetName, spec.TableName
+        Exit Sub
+    End If
     Set srcSheet = mainDatabase.Worksheets(spec.SheetName)
 
     Dim cols() As Long, n As Long, c As Long, r As Long, outRow As Long, idCol As Long
@@ -106,17 +133,33 @@ Private Sub ExportTab(ByVal mainDatabase As Object, ByRef spec As TabSpec, ByVal
     ws.Cells(HEADER_ROW, idCol).Value = EXPORT_ID_HEADER
     ws.Columns(idCol).Hidden = True
 
+    Dim picked As Long, why As Long, id As String
     outRow = HEADER_ROW
     For r = 1 To src.RowCount
-        If Pick(spec, src, r, calendarYear) <> PICK_OUT Then
+        picked = Pick(spec, src, r, calendarYear, why)
+        If picked <> PICK_OUT Then
             outRow = outRow + 1
             For c = 1 To n
                 CopyNumberFormat srcSheet.Cells(src.RowNums(r), src.Cols(cols(c))), ws.Cells(outRow, c)
                 WriteValue ws.Cells(outRow, c), src.Values(r, cols(c))
             Next c
-            ws.Cells(outRow, idCol).Value = spec.Prefix & "-" & Format(outRow - HEADER_ROW, "0000")
+            id = spec.Prefix & "-" & Format(outRow - HEADER_ROW, "0000")
+            ws.Cells(outRow, idCol).Value = id
+            LookupLine id, spec.Title, ColumnValue(src, r, spec.NoHeader), ColumnValue(src, r, spec.TitleHeader), _
+                       ColumnValue(src, r, spec.Key1Header), ColumnValue(src, r, spec.Key2Header)
+            If picked = PICK_UNREADABLE Then
+                ReportLine "Unreadable date", spec.Title, src.RowNums(r), Tidy(src.Headers(why)), CellText(src.Values(r, why))
+            End If
         End If
     Next r
+    ReportLine "Exported", spec.Title, "", "", outRow - HEADER_ROW
+    If spec.NoHeader <> "" Then
+        For r = 1 To src.RowCount
+            If IsBlank(ColumnValue(src, r, spec.NoHeader)) Then
+                ReportLine "No No.", spec.Title, src.RowNums(r), "No.", CellText(ColumnValue(src, r, spec.TitleHeader))
+            End If
+        Next r
+    End If
 
     Dim list As String
     For c = 1 To n
@@ -205,23 +248,35 @@ Private Function ExportColumns(ByRef spec As TabSpec, ByRef src As SheetRows, By
     ExportColumns = n
 End Function
 
-' Whether row r of a tab belongs to the year.
-Private Function Pick(ByRef spec As TabSpec, ByRef src As SheetRows, ByVal r As Long, ByVal calendarYear As Long) As Long
+' Whether row r of a tab belongs to the year. When the answer is
+' PICK_UNREADABLE, why is set to the column that couldn't be read.
+Private Function Pick(ByRef spec As TabSpec, ByRef src As SheetRows, ByVal r As Long, ByVal calendarYear As Long, ByRef why As Long) As Long
+    Dim dateCol As Long, yearCol As Long, startCol As Long, endCol As Long
+    dateCol = FindColumn(src, spec.DateHeader)
+    yearCol = FindColumn(src, spec.YearHeader)
     Select Case spec.Rule
         Case RULE_DATE
-            Pick = PickByDate(ColumnValue(src, r, spec.DateHeader), calendarYear)
+            why = dateCol
+            Pick = PickByDate(CellAt(src, r, dateCol), calendarYear)
         Case RULE_YEAR
-            Pick = PickByYear(ColumnValue(src, r, spec.YearHeader), calendarYear)
+            why = yearCol
+            Pick = PickByYear(CellAt(src, r, yearCol), calendarYear)
         Case RULE_YEAR_THEN_DATE
-            If IsBlank(ColumnValue(src, r, spec.YearHeader)) Then
-                Pick = PickByDate(ColumnValue(src, r, spec.DateHeader), calendarYear)
+            If IsBlank(CellAt(src, r, yearCol)) Then
+                why = dateCol
+                Pick = PickByDate(CellAt(src, r, dateCol), calendarYear)
             Else
-                Pick = PickByYear(ColumnValue(src, r, spec.YearHeader), calendarYear)
+                why = yearCol
+                Pick = PickByYear(CellAt(src, r, yearCol), calendarYear)
             End If
         Case RULE_PROJECT
-            Pick = PickProject(ColumnValue(src, r, "loa start date"), ColumnValue(src, r, "loa end date"), _
-                               ColumnValue(src, r, "status"), calendarYear)
+            startCol = FindColumn(src, "loa start date")
+            endCol = FindColumn(src, "loa end date")
+            Pick = PickProject(CellAt(src, r, startCol), CellAt(src, r, endCol), ColumnValue(src, r, "status"), calendarYear)
+            Dim d As Date
+            If ReadDate(CellAt(src, r, startCol), d) Or IsBlank(CellAt(src, r, startCol)) Then why = endCol Else why = startCol
     End Select
+    If why = 0 Then why = 1
 End Function
 
 Private Function PickByYear(ByVal v As Variant, ByVal calendarYear As Long) As Long
@@ -275,27 +330,32 @@ Private Sub LoadTabs()
         .SheetName = "DB_Publications": .TableName = "tbl_Publication": .Anchor = "title of article"
         .Drop = "journal category & jif percentile listing*|jif percentile*"
         .Rule = RULE_DATE: .DateHeader = "date of publication"
+        .NoHeader = "no.": .TitleHeader = "title of article": .Key1Header = "doi": .Key2Header = "title of article"
     End With
     With mTabs(2)
         .Title = "Poster & Oral Presentation": .NameColumn = "Full Name": .Prefix = "PRES"
         .SheetName = "DB_Poster& Oral Presentation": .TableName = "tbl_PosterOralPresentation"
         .Anchor = "title of presentation/topic"
         .Rule = RULE_DATE: .DateHeader = "date of presentation"
+        .NoHeader = "no.": .TitleHeader = "title of presentation/topic": .Key1Header = "title of presentation/topic": .Key2Header = ""
     End With
     With mTabs(3)
         .Title = "Media": .NameColumn = "Full name": .Prefix = "MED"
         .SheetName = "DB_Media": .TableName = "": .Anchor = "platform of media"
         .Rule = RULE_DATE: .DateHeader = "media publishing date"
+        .NoHeader = "no.": .TitleHeader = "title of media published*": .Key1Header = "title of media published*": .Key2Header = "name of media published source*"
     End With
     With mTabs(4)
         .Title = "Talent Development": .NameColumn = "Name": .Prefix = "TD"
         .SheetName = "DB_Talent Develop": .TableName = "tbl_TalentDevelop": .Anchor = "award description"
         .Rule = RULE_YEAR: .YearHeader = "year"
+        .NoHeader = "": .TitleHeader = "award description": .Key1Header = "name": .Key2Header = "award description"
     End With
     With mTabs(5)
         .Title = "Education": .NameColumn = "Trainer(s)/Speaker(s)": .Prefix = "EDU"
         .SheetName = "DB_Education": .TableName = "tbl_Education": .Anchor = "title of course*"
         .Rule = RULE_YEAR_THEN_DATE: .YearHeader = "year": .DateHeader = "date/year/period"
+        .NoHeader = "": .TitleHeader = "title of course*": .Key1Header = "title of course*": .Key2Header = "year"
     End With
     With mTabs(6)
         .Title = "Projects": .NameColumn = "PI or Co-I/Collaborator": .Prefix = "PRJ"
@@ -303,6 +363,7 @@ Private Sub LoadTabs()
         .Only = "grant ref no|project name|category|grant / collaborator partners|grant type|pi|" & _
                 "co-i/collaborator|loa start date|loa end date|grant amount|grant amt (awarded to ttsh)|status"
         .Rule = RULE_PROJECT
+        .NoHeader = "": .TitleHeader = "project name": .Key1Header = "grant ref no": .Key2Header = "project name"
     End With
 End Sub
 
@@ -440,9 +501,13 @@ Private Function FindColumn(ByRef b As SheetRows, ByVal pattern As String) As Lo
 End Function
 
 Private Function ColumnValue(ByRef b As SheetRows, ByVal r As Long, ByVal pattern As String) As Variant
-    Dim c As Long
-    c = FindColumn(b, pattern)
-    If c > 0 Then ColumnValue = b.Values(r, c)
+    ColumnValue = Empty
+    If pattern <> "" Then ColumnValue = CellAt(b, r, FindColumn(b, pattern))
+End Function
+
+Private Function CellAt(ByRef b As SheetRows, ByVal r As Long, ByVal c As Long) As Variant
+    CellAt = Empty
+    If c > 0 Then CellAt = b.Values(r, c)
 End Function
 
 Private Function HeaderMatches(ByVal key As String, ByVal pattern As String) As Boolean
@@ -619,7 +684,9 @@ End Function
 ' Writes a value as it is. Text that Excel would turn into a number or date
 ' when typed ("45700", "20 Aug 25", "(5)") is written as text.
 Private Sub WriteValue(ByVal cell As Object, ByVal v As Variant)
-    If IsError(v) Then
+    If IsEmpty(v) Then
+        Exit Sub
+    ElseIf IsError(v) Then
         cell.Value = "'" & CellText(v)
     ElseIf VarType(v) = vbString Then
         If TextNeedsQuote(CStr(v)) Then cell.Value = "'" & v Else cell.Value = v
@@ -645,8 +712,72 @@ End Function
 ' Files
 ' ===========================================================================
 
-Private Sub SaveAndClose(ByVal wb As Object, ByVal path As String)
+Private Sub WriteLookup(ByVal path As String)
+    Dim wb As Object, ws As Object, r As Long, c As Long, entry As Variant
+    Set wb = Workbooks.Add(XL_SINGLE_SHEET)
+    Set ws = wb.Worksheets(1)
+    ws.Name = "ID lookup"
+    ws.Range("A1:F1").Value = Array(EXPORT_ID_HEADER, "Tab", "No.", "Title", "Key 1", "Key 2")
+    ws.Range("A1:F1").Font.Bold = True
+    For r = 1 To mLookupCount
+        entry = mLookup(r)
+        For c = 0 To 5
+            WriteValue ws.Cells(r + 1, c + 1), entry(c)
+        Next c
+    Next r
+    SaveNew wb, path
+End Sub
+
+Private Sub WriteExportReport(ByVal path As String, ByVal calendarYear As Long)
+    Dim wb As Object, ws As Object, r As Long, c As Long, entry As Variant
+    Set wb = Workbooks.Add(XL_SINGLE_SHEET)
+    Set ws = wb.Worksheets(1)
+    ws.Name = "Export report"
+    ws.Range("A1").Value = "Export Staff Copy for CY" & calendarYear & ", run " & Format(Now, "d mmm yyyy hh:mm")
+    ws.Range("A1").Font.Bold = True
+    ws.Range("A3:E3").Value = Array("Entry", "Tab", "Main Database row", "Column", "Value")
+    ws.Range("A3:E3").Font.Bold = True
+    For r = 1 To mReportCount
+        entry = mReport(r)
+        For c = 0 To 4
+            WriteValue ws.Cells(r + 3, c + 1), entry(c)
+        Next c
+    Next r
+    ws.Columns("A:E").ColumnWidth = 24
+    SaveNew wb, path
+End Sub
+
+Private Sub LookupLine(ByVal id As String, ByVal tabTitle As String, ByVal no As Variant, ByVal title As Variant, ByVal key1 As Variant, ByVal key2 As Variant)
+    mLookupCount = mLookupCount + 1
+    ReDim Preserve mLookup(1 To mLookupCount)
+    mLookup(mLookupCount) = Array(id, tabTitle, no, title, key1, key2)
+End Sub
+
+Private Sub ReportLine(ByVal entry As String, ByVal tabTitle As String, ByVal sheetRow As Variant, ByVal column As String, ByVal value As Variant)
+    mReportCount = mReportCount + 1
+    ReDim Preserve mReport(1 To mReportCount)
+    mReport(mReportCount) = Array(entry, tabTitle, sheetRow, column, value)
+End Sub
+
+' Header text with line breaks and runs of spaces collapsed, for reports.
+Private Function Tidy(ByVal s As String) As String
+    s = Replace(Replace(Replace(s, vbCr, " "), vbLf, " "), vbTab, " ")
+    Do While InStr(s, "  ") > 0
+        s = Replace(s, "  ", " ")
+    Loop
+    Tidy = Trim(s)
+End Function
+
+Private Function FileExists(ByVal path As String) As Boolean
+    On Error Resume Next
+    FileExists = (Dir(path) <> "")
+    Err.Clear
+End Function
+
+' Saves a new workbook as .xlsx at path, replacing any file there, and closes it.
+Private Sub SaveNew(ByVal wb As Object, ByVal path As String)
     Dim alerts As Boolean
+    If FileExists(path) Then Kill path
     alerts = Application.DisplayAlerts
     Application.DisplayAlerts = False
     wb.SaveAs Filename:=path, FileFormat:=XL_WORKBOOK

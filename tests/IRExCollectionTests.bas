@@ -67,7 +67,13 @@ Private Function TestNames() As Variant
         "Export_keeps_text_that_looks_like_a_number_or_date_as_text", _
         "Export_puts_a_how_to_find_your_records_note_above_each_table", _
         "Export_carries_the_dropdown_lists_over_as_fixed_lists", _
-        "Export_puts_the_rows_in_an_Excel_table")
+        "Export_puts_the_rows_in_an_Excel_table", _
+        "Export_writes_an_ID_lookup_with_each_rows_tab_No_title_and_match_keys", _
+        "Export_report_counts_the_rows_exported_per_tab", _
+        "Export_report_lists_rows_whose_date_or_Year_cant_be_read", _
+        "Export_report_lists_Main_Database_rows_with_no_No", _
+        "Export_replaces_an_existing_Collection_Workbook_only_when_told_to", _
+        "Export_leaves_the_Main_Database_as_it_was")
 End Function
 
 Private Sub Setup(ByVal fixtures As String, ByVal outDir As String, ByVal inLibreOffice As Boolean)
@@ -99,6 +105,12 @@ Private Sub Dispatch(ByVal name As String)
         Case "Export_puts_a_how_to_find_your_records_note_above_each_table": Export_puts_a_how_to_find_your_records_note_above_each_table
         Case "Export_carries_the_dropdown_lists_over_as_fixed_lists": Export_carries_the_dropdown_lists_over_as_fixed_lists
         Case "Export_puts_the_rows_in_an_Excel_table": Export_puts_the_rows_in_an_Excel_table
+        Case "Export_writes_an_ID_lookup_with_each_rows_tab_No_title_and_match_keys": Export_writes_an_ID_lookup_with_each_rows_tab_No_title_and_match_keys
+        Case "Export_report_counts_the_rows_exported_per_tab": Export_report_counts_the_rows_exported_per_tab
+        Case "Export_report_lists_rows_whose_date_or_Year_cant_be_read": Export_report_lists_rows_whose_date_or_Year_cant_be_read
+        Case "Export_report_lists_Main_Database_rows_with_no_No": Export_report_lists_Main_Database_rows_with_no_No
+        Case "Export_replaces_an_existing_Collection_Workbook_only_when_told_to": Export_replaces_an_existing_Collection_Workbook_only_when_told_to
+        Case "Export_leaves_the_Main_Database_as_it_was": Export_leaves_the_Main_Database_as_it_was
         Case Else: Fail "no such test"
     End Select
 End Sub
@@ -354,6 +366,88 @@ Private Sub Export_puts_the_rows_in_an_Excel_table()
     Next ws
 End Sub
 
+' Lookup rows read "tab|No.|title|Key 1|Key 2". The keys per tab: Publications
+' DOI and title; Presentations title; Media title and outlet; Talent
+' Development name and award; Education title and Year; Projects Grant Ref No
+' and Project Name.
+Private Sub Export_writes_an_ID_lookup_with_each_rows_tab_No_title_and_match_keys()
+    Dim lk As Object
+    ExportFixture 2025
+    Set lk = OpenWorkbook(AdminFolder() & "IREX_Rehab_Data_Collection_CY2025 " & ChrW(8211) & " ID lookup.xlsx")
+    Dim ws As Object
+    Set ws = lk.Worksheets(1)
+    AssertEqual "export id|tab|no.|title|key 1|key 2", Squash(Join(Array(ws.Range("A1").Value, ws.Range("B1").Value, _
+        ws.Range("C1").Value, ws.Range("D1").Value, ws.Range("E1").Value, ws.Range("F1").Value), "|")), "headers"
+    AssertEqual 27, ws.Cells(ws.Rows.Count, 1).End(-4162).Row - 1, "one row per exported record"
+    AssertEqual "Publications|1|Robotic gait training after stroke: a pilot study|10.1000/test.0001|Robotic gait training after stroke: a pilot study", _
+        LookupRow(ws, "PUB-0001"), "PUB-0001"
+    AssertEqual "Publications|3|Spasticity outcomes after botulinum toxin||Spasticity outcomes after botulinum toxin", LookupRow(ws, "PUB-0002"), "PUB-0002"
+    AssertEqual "Poster & Oral Presentation|4|Virtual reality balance training for older adults|Virtual reality balance training for older adults|", _
+        LookupRow(ws, "PRES-0003"), "PRES-0003"
+    AssertEqual "Media|2|New stroke rehab centre opens|New stroke rehab centre opens|The Test Times Print", LookupRow(ws, "MED-0002"), "MED-0002"
+    AssertEqual "Talent Development||Test Fellowship Award|Tan Wei Ling|Test Fellowship Award", LookupRow(ws, "TD-0001"), "TD-0001"
+    AssertEqual "Education||Spasticity management workshop|Spasticity management workshop|2025", LookupRow(ws, "EDU-0001"), "EDU-0001"
+    AssertEqual "Education||Pressure injury prevention webinar|Pressure injury prevention webinar|", LookupRow(ws, "EDU-0002"), "EDU-0002"
+    AssertEqual "Projects||Exoskeleton feasibility||Exoskeleton feasibility", LookupRow(ws, "PRJ-0004"), "PRJ-0004"
+    AssertEqual "Projects||Robot-assisted gait study|GRT-001|Robot-assisted gait study", LookupRow(ws, "PRJ-0001"), "PRJ-0001"
+End Sub
+
+Private Sub Export_report_counts_the_rows_exported_per_tab()
+    Dim report As String
+    ExportFixture 2025
+    report = ReportText()
+    AssertContains report, "Exported|Publications|||5", "Publications"
+    AssertContains report, "Exported|Poster & Oral Presentation|||3", "Presentations"
+    AssertContains report, "Exported|Media|||4", "Media"
+    AssertContains report, "Exported|Talent Development|||3", "Talent Development"
+    AssertContains report, "Exported|Education|||6", "Education"
+    AssertContains report, "Exported|Projects|||6", "Projects"
+End Sub
+
+' Lines read "Unreadable date|tab|Main Database row|column|value".
+Private Sub Export_report_lists_rows_whose_date_or_Year_cant_be_read()
+    Dim report As String
+    ExportFixture 2025
+    report = ReportText()
+    AssertContains report, "Unreadable date|Publications|7|Date of Publication|(blank)", "Publications"
+    AssertContains report, "Unreadable date|Media|6|Media Publishing Date|Nov 26(KIV)", "Media"
+    AssertContains report, "Unreadable date|Talent Development|5|Year|", "Talent Development"
+    AssertContains report, "Unreadable date|Education|7|Date/Year/Period|25 & 26 Feb 25", "Education"
+    AssertContains report, "Unreadable date|Education|13|Date/Year/Period|PARTNER PROGRAMME", "Education label row"
+    AssertEqual 5, CountOf(report, "Unreadable date|"), "nothing else listed"
+End Sub
+
+' Every Main Database row with an empty No., exported or not.
+Private Sub Export_report_lists_Main_Database_rows_with_no_No()
+    Dim report As String
+    ExportFixture 2025
+    report = ReportText()
+    AssertContains report, "No No.|Poster & Oral Presentation|6|No.|Return to work after stroke", "Presentations"
+    AssertEqual 1, CountOf(report, "No No.|"), "nothing else listed"
+End Sub
+
+Private Sub Export_replaces_an_existing_Collection_Workbook_only_when_told_to()
+    Dim path As String, staffCopy As String
+    path = ExportFixture(2025)
+    staffCopy = mFixtures & "check" & Application.PathSeparator & "IREX_Rehab_Data_Collection_CY2025.xlsx"
+    FileCopy staffCopy, path
+    AssertEqual "", RunExportStaffCopy(2025, OpenMainDatabase(), SharedFolder(), AdminFolder(), False), "returns nothing when not replacing"
+    AssertEqual FileLen(staffCopy), FileLen(path), "the existing file is kept"
+    If mInLibreOffice Then
+        Skip "replacing (LibreOffice keeps the first export open, which blocks saving over it)"
+        Exit Sub
+    End If
+    AssertEqual path, RunExportStaffCopy(2025, OpenMainDatabase(), SharedFolder(), AdminFolder(), True), "returns the path when replacing"
+    AssertTrue FileLen(staffCopy) <> FileLen(path), "the existing file is replaced"
+End Sub
+
+Private Sub Export_leaves_the_Main_Database_as_it_was()
+    Dim before As String
+    before = Fingerprint(OpenMainDatabase())
+    ExportFixture 2025
+    AssertEqual before, Fingerprint(OpenMainDatabase()), "sheets, ranges and values"
+End Sub
+
 ' ---------------------------------------------------------------------------
 ' Helpers: running the macros
 ' ---------------------------------------------------------------------------
@@ -481,6 +575,59 @@ Private Function ListOf(ByVal ws As Object, ByVal header As String, ByVal n As L
     On Error GoTo 0
 End Function
 
+Private Function LookupRow(ByVal ws As Object, ByVal exportId As String) As String
+    Dim r As Long, c As Long, s As String
+    For r = 2 To ws.Cells(ws.Rows.Count, 1).End(-4162).Row
+        If ws.Cells(r, 1).Value = exportId Then
+            For c = 2 To 6
+                s = s & "|" & Show(ws.Cells(r, c).Value)
+            Next c
+            LookupRow = Mid(s, 2)
+            Exit Function
+        End If
+    Next r
+    LookupRow = "(no lookup row " & exportId & ")"
+End Function
+
+' Every row of the export report, one line each, cells "|"-separated.
+Private Function ReportText() As String
+    Dim f As String, wb As Object
+    f = Dir(AdminFolder() & "*export report*.xlsx")
+    If f = "" Then
+        ReportText = "(no export report)"
+        Exit Function
+    End If
+    Set wb = OpenWorkbook(AdminFolder() & f)
+    ReportText = SheetText(wb.Worksheets(1))
+End Function
+
+Private Function SheetText(ByVal ws As Object) As String
+    Dim r As Long, c As Long, lastRow As Long, lastCol As Long, line As String, s As String
+    lastRow = ws.UsedRange.Row + ws.UsedRange.Rows.Count - 1
+    lastCol = ws.UsedRange.Column + ws.UsedRange.Columns.Count - 1
+    For r = 1 To lastRow
+        line = ""
+        For c = 1 To lastCol
+            line = line & "|" & Show(ws.Cells(r, c).Value)
+        Next c
+        s = s & vbLf & Mid(line, 2)
+    Next r
+    SheetText = s & vbLf
+End Function
+
+' Sheet names, used ranges and every value, to tell whether a workbook changed.
+Private Function Fingerprint(ByVal wb As Object) As String
+    Dim ws As Object, s As String
+    For Each ws In wb.Worksheets
+        s = s & "#" & ws.Name & "@" & ws.UsedRange.Address & SheetText(ws)
+    Next ws
+    Fingerprint = s
+End Function
+
+Private Function CountOf(ByVal text As String, ByVal part As String) As Long
+    CountOf = (Len(text) - Len(Replace(text, part, ""))) / Len(part)
+End Function
+
 ' The value n rows under a column's header.
 Private Function CellUnder(ByVal ws As Object, ByVal header As String, ByVal n As Long) As Variant
     Dim h As Object
@@ -550,6 +697,13 @@ End Sub
 Private Sub AssertEqual(ByVal expected As Variant, ByVal actual As Variant, ByVal what As String)
     If Not SameValue(expected, actual) Then
         Fail what & ": expected [" & Show(expected) & "] but got [" & Show(actual) & "]"
+    End If
+End Sub
+
+' Passes when one whole line of text starts with line (text from SheetText).
+Private Sub AssertContains(ByVal text As String, ByVal line As String, ByVal what As String)
+    If InStr(text, vbLf & line & "|") = 0 And InStr(text, vbLf & line & vbLf) = 0 Then
+        Fail what & ": no line [" & line & "] in" & Replace(text, vbLf, vbLf & "        ")
     End If
 End Sub
 
