@@ -12,3 +12,4 @@ IREx Admin uses the main database (`tbl_IRExDB_Use_This.xlsm`) every day, for KP
 
 - Moving a row into the main database is the check. There's no New/Checked status, and every row in the main database counts.
 - Rejected Submissions stay in the Submissions workbook with a reason. Nothing is deleted.
+- The staff workbook route works the same way. A *Check Staff Workbook* macro compares the shared staff workbook with the main database and saves a highlighted copy (new rows and changed rows in two colours). IREx Admin copies rows into the main database by hand. Nothing writes into the main database automatically.

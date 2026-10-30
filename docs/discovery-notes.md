@@ -161,25 +161,41 @@ The user questioned old round 3 Q6 (importing existing data). The data flow they
 4. **Names on the Form.** The user asked whether this meant names being filled in automatically from the Form. It's explained again in round 11 Q6.
 5. **Rollout starts now, without the Form.** The first cycle sends the staff workbook and reminders only. The Form is added in a later cycle.
 
-## Open questions (round 11)
+## Settled (round 11)
 
-These are about the staff workbook, the part being built first.
+1. **One shared staff workbook** sits in a SharePoint folder that Rehab Staff can edit, and its link goes in every reminder.
+2. **The staff workbook has no macros.** It's a plain .xlsx. The macros live in the main database. When IREx Admin checks the staff workbook, the macro reads every filled row on each sheet, inside or below the table. Rows with no *No.* are new.
+3. **Macros.** The user asked what the edit-detection macro does and how many macros there are. Round 11 Q3 and Q4 merge into a single macro. The staff workbook route needs **two** new macros, both in the main database:
+   - **Export Staff Copy** writes the staff workbook for a chosen year.
+   - **Check Staff Workbook** compares the staff workbook with the main database (Q4 below).
 
-1. **One shared file or emailed copies.** Recommended: one shared staff workbook in a SharePoint folder that Rehab Staff can edit, with the link in every reminder. Everyone edits the same file in the browser or desktop Excel, so there are no 30 copies to merge. It has no macros: the macros live in the main database.
-2. **Rows typed outside the table.** Recommended: don't rely on staff typing inside the table. When IREx Admin collects, the macro reads every filled row on each sheet, inside or below the table. A row with no *No.* is new, because the export writes the main database's No. on every existing row.
-3. **Staff editing an existing row.** Staff will naturally update their own row, for example Under Review → Published. Recommended: when collecting, the macro compares each existing row with the main database. It lists the changed cells and highlights them in the main database, and IREx Admin applies them by hand. Nothing is overwritten automatically.
-4. **Getting staff rows into the main database.** Recommended: an *Import Staff Entries* macro in the main database. It appends new rows inside the right tables, highlights likely duplicates by title or DOI, and lists the edits from Q3. It runs before each fresh Export Staff Copy, which replaces the shared file, so nothing is lost. Until the macro exists, IREx Admin copies the rows by hand as now.
-5. **Searching for your name.** Recommended: a short note at the top of each sheet: "Find your records: Ctrl+F, or the filter arrow on the name column. If Excel offers a *Sheet View*, choose it so you don't change what others see." There's no search box, because in a shared file one person's typed search would change it for everyone. Searching for the family name catches most spelling variants.
-6. **Names on the Form (later).** When someone submits the Form, their name and email are recorded automatically in *Submitted by*. That's the Form's sign-in, not a question. The round 10 question was whether to also copy that name into the name columns (e.g. Presentation Full Name). Recommended: no. Name columns arrive blank, and IREx Admin fills them from Submitted by in their own name format.
-7. **Build order.** Recommended, starting now:
-   - (1) the Export Staff Copy macro, which strips the finance and admin columns except Grant Amount and Amount Awarded to TTSH
-   - (2) the shared staff workbook in SharePoint
-   - (3) the two Power Automate reminder flows (quarterly, and on demand) linking to it
-   - (4) the Import Staff Entries macro, ready before the first collection
+   The Form route will add a third macro later. The existing Gantt macros are untouched.
+4. **No import macro for the staff workbook.** Instead, *Check Staff Workbook* compares it with the main database and saves a highlighted copy, with **new rows in one colour and changed rows in another**. IREx Admin identifies the rows and copies them into the main database by hand. This replaces round 11's proposed *Import Staff Entries* macro.
+5. **Visibility in the shared file.** The user asked whether one person's changes can be kept from showing to everyone else: round 12 Q2.
+6. **Names on the Form (later).** Each name column (TTSH Contributor, presenter Full Name, Media Full name, Talent Development Name, Education Trainers, PI) is a question on the Form, left blank for the Submitter to fill in. The name columns arrive holding exactly what the Submitter typed. *Submitted by* is still recorded from the sign-in. This replaces round 5's "no Rehab Staff involved box" and the round 9–10 "IREx Admin fills names".
+7. **Build order** as proposed: Export Staff Copy → shared staff workbook → reminder flows → Check Staff Workbook. The Form comes later. **Export Staff Copy asks IREx Admin which year to export.** Projects are exported if they start in that year, are still ongoing in it, or were completed in it.
 
-   Later: the Form, the Submissions workbook and the Import Submissions macro.
+## Open questions (round 12)
 
-Still needed from the user: the Category of Article values (for the Form, and an optional dropdown in the staff workbook), and whether Power Apps is available.
+1. **What Check Staff Workbook marks.** Recommended:
+   - It saves a copy (e.g. "Staff workbook – checked 2026-11-02.xlsx") in the admin-only folder. The shared file itself is never touched.
+   - **Green** row: new. It has no No., and its title and DOI don't match any record in the main database.
+   - **Yellow** row: changed. Its No. exists, but some values differ from the main database. The changed cells are also in bold.
+   - A row with no No. whose title or DOI matches a main database record isn't marked as new. Its note column says "already recorded as No. X", and its differences show in yellow like a changed row. This covers rows IREx Admin has already copied over, and status updates typed as new rows.
+   - A summary sheet counts the new and changed rows per tab, and lists any existing records that are missing from the staff workbook (deleted by someone).
+2. **Visibility in the shared file.** Two things can be meant:
+   - **Sorting and filtering.** With Sheet View, a filter or sort applies only to the person who set it. Excel usually asks "just me or everyone?" when others are in the file.
+   - **Content.** Anyone who can edit the shared file sees every row, including what others typed and the existing records. One shared file can't hide rows per person. The only ways to do that are separate copies per person, which brings back merging, or the Form.
+
+   Recommended: accept this. Staff can see each other's records today in the emailed copy, and the sensitive project finance columns are gone. The note at the top of each sheet tells staff to use Sheet View.
+3. **The export's year rule.** For the chosen year Y, recommended:
+   - **Research Outputs:** date in Y.
+   - **Education:** date in Y.
+   - **Talent Development:** Year = Y.
+   - **Projects:** LOA start ≤ 31 Dec Y, and either LOA end ≥ 1 Jan Y or no LOA end. Projects with status Applied and no LOA yet are also included.
+   - **Unreadable dates** (text dates, Excel serial numbers, "(blank)"): those rows are included rather than hidden, and listed for IREx Admin to fix.
+4. **When to export.** The export replaces the shared file, and anything staff typed since the last check and copy-over would be lost. Recommended: export once at the start of each year, after a final check of the previous year's file. During the year the same file stays up. IREx Admin can re-export mid-year to show staff their corrections, but only straight after a check and copy-over.
+5. **The No. column as the record key.** Matching depends on No. being unique and never changing. Recommended: if No. is typed by hand, keep doing that: each new row copied into the main database gets the next number. If No. is a formula (e.g. =ROW()-1), the export uses a separate hidden key, because a formula number changes when the table is sorted. The user needs to say which it is.
 
 ## Platform facts checked
 
@@ -195,11 +211,11 @@ These were looked up during the interview, so they don't need to be put to the u
 
 ## Not yet asked
 
-These come after round 11:
+These come after round 12:
 
 - Category of Article values for the Publication question (needed from the user).
 - Power Apps: the user hasn't checked make.powerapps.com yet.
 
 ## Next session
 
-Resume by putting round 11 to the user again; [handoff.md](handoff.md) says how.
+Resume by putting round 12 to the user again; [handoff.md](handoff.md) says how.
