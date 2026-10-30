@@ -17,6 +17,14 @@ This file holds only what those three don't: how to resume, and the conversation
 5. ADRs live in `docs/adr/` (format in the `domain-modeling` skill). 0001 records that the main database stays the hand-edited source of truth. Offer more only when a decision meets the skill's three tests.
 6. The interview is finished when the "Not yet asked" list in the notes is empty and the user confirms there's a shared understanding. Build nothing before that.
 
+## Building the Collection Workbook
+
+- **The spec** is [GitHub issue #1](https://github.com/zkaiiii04/IREx-Data-Gathering/issues/1). Use it as the source for the build.
+- **The order:** `/to-tickets` breaks the spec into tickets, and `/implement-spec` builds them.
+- **What gets built:** VBA source for one new module (exported as `.bas`), the test runner, and fixture workbooks with invented data only.
+- **Testing:** this container can't run Excel. Fixtures can be generated with openpyxl. The user runs the VBA tests in desktop Excel on Windows and reports the results.
+- **The real main database:** the last upload was `/root/.claude/uploads/f7c6946e-91b1-58b7-9c27-9db89ff43d0b/1e7adb3a-tbl_IRExDB_Use_This.xlsm`. If it's gone, ask for a re-upload. Never commit it, and never copy names or figures from it into fixtures.
+
 ## Context from the conversation
 
 - **The staff workbook is built first.** The user needs to start collecting data now, so the Form comes later (round 10).
