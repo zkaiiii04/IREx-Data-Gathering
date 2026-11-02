@@ -479,11 +479,16 @@ def make_collection_workbook(folder):
     old_title[0] = "Virtual reality balance training"
     blank_end = list(pr[2])
     blank_end[5] = None
+    new_venue = list(pr[1])                                      # the same talk at another conference
+    new_venue[3:6] = [D(2025, 11, 8), D(2025, 11, 7), D(2025, 11, 9)]
+    new_venue[7] = "Test Neuro Rehab Summit"
     write_cw_tab(wb, "Poster & Oral Presentation", [h for h in PRES_HEADERS], [
         [1] + pr[1] + ["PRES-0001"],
         [2] + blank_end + ["PRES-0002"],
         [4] + old_title + ["PRES-0003"],
-    ], table_rows=3)
+        [None] + new_venue + [None],                             # new: same title, new conference
+        [None] + list(pr[1]) + [None],                           # typed again: same title and conference
+    ], table_rows=5)
 
     m = {i + 1: rec for i, rec in enumerate(MEDIA)}
     link_change = list(m[3])
@@ -548,9 +553,9 @@ def make_collection_workbook(folder):
     ws.append(["Export ID", "Tab", "No.", "Title", "Key 1", "Key 2"])
     for n, (no, rec) in enumerate([(1, p[1]), (3, p[3]), (4, p[4]), (5, p[5]), (6, p[6])], 1):
         ws.append([f"PUB-{n:04d}", "Publications", no, rec[0], rec[9], rec[0]])
-    for n, (no, title) in enumerate([(1, pr[1][0]), (2, pr[2][0]),
-                                     (4, "Virtual reality balance training")], 1):
-        ws.append([f"PRES-{n:04d}", "Poster & Oral Presentation", no, title, title, None])
+    for n, (no, title, venue) in enumerate([(1, pr[1][0], pr[1][7]), (2, pr[2][0], pr[2][7]),
+                                            (4, "Virtual reality balance training", pr[4][7])], 1):
+        ws.append([f"PRES-{n:04d}", "Poster & Oral Presentation", no, title, title, venue])
     for n, (no, rec) in enumerate([(1, m[1]), (2, m[2]), (3, m[3]), (5, m[5]), (4, m[4])], 1):
         ws.append([f"MED-{n:04d}", "Media", no, rec[3], rec[3], rec[4]])
     for n, rec in enumerate([t[1], t[2], t[4]], 1):

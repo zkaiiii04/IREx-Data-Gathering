@@ -85,7 +85,7 @@ What the comparison ignores: spaces at the start or end, double spaces, line bre
 | Tab | Match keys, tried in order |
 |---|---|
 | Publications | No., then DOI, then Title of Article |
-| Poster & Oral Presentation | No., then title |
+| Poster & Oral Presentation | No., then title together with Name of Conference (one talk at several conferences is several Presentations) |
 | Media | Title together with the media source (one story in several outlets is several Media Appearances) |
 | Talent Development | Name together with Award Description |
 | Education | Title together with Year |

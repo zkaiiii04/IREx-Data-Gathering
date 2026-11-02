@@ -990,8 +990,9 @@ Private Sub LoadTabs()
         .SheetName = "DB_Poster& Oral Presentation": .TableName = "tbl_PosterOralPresentation"
         .Anchor = "title of presentation/topic"
         .Rule = RULE_DATE: .DateHeader = "date of presentation"
-        .NoHeader = "no.": .TitleHeader = "title of presentation/topic": .Key1Header = "title of presentation/topic": .Key2Header = ""
-        .Keys = "0;1"
+        .NoHeader = "no.": .TitleHeader = "title of presentation/topic": .Key1Header = "title of presentation/topic"
+        .Key2Header = "name of conference*"         ' one talk at several conferences is several Presentations
+        .Keys = "0;1+2"
     End With
     With mTabs(4)
         .Title = "Education": .NameColumn = "Trainer(s)/Speaker(s)": .Prefix = "EDU"

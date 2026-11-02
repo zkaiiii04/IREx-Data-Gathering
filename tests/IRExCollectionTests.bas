@@ -85,6 +85,7 @@ Private Function TestNames() As Variant
         "Check_ignores_differences_of_spacing_case_line_breaks_and_date_or_number_format", _
         "Check_flags_a_one_letter_spelling_fix", _
         "Check_matches_rows_by_Export_ID_whatever_order_the_sheet_is_in", _
+        "Check_matches_a_Presentation_by_title_and_conference", _
         "Check_finds_a_record_by_No_after_its_title_was_changed_in_the_Main_Database", _
         "Check_notes_a_row_typed_again_as_already_recorded_and_marks_its_differences", _
         "Check_lists_rows_whose_record_it_cant_find_in_the_Main_Database", _
@@ -140,6 +141,7 @@ Private Sub Dispatch(ByVal name As String)
         Case "Check_ignores_differences_of_spacing_case_line_breaks_and_date_or_number_format": Check_ignores_differences_of_spacing_case_line_breaks_and_date_or_number_format
         Case "Check_flags_a_one_letter_spelling_fix": Check_flags_a_one_letter_spelling_fix
         Case "Check_matches_rows_by_Export_ID_whatever_order_the_sheet_is_in": Check_matches_rows_by_Export_ID_whatever_order_the_sheet_is_in
+        Case "Check_matches_a_Presentation_by_title_and_conference": Check_matches_a_Presentation_by_title_and_conference
         Case "Check_finds_a_record_by_No_after_its_title_was_changed_in_the_Main_Database": Check_finds_a_record_by_No_after_its_title_was_changed_in_the_Main_Database
         Case "Check_notes_a_row_typed_again_as_already_recorded_and_marks_its_differences": Check_notes_a_row_typed_again_as_already_recorded_and_marks_its_differences
         Case "Check_lists_rows_whose_record_it_cant_find_in_the_Main_Database": Check_lists_rows_whose_record_it_cant_find_in_the_Main_Database
@@ -431,7 +433,7 @@ Private Sub Export_lays_each_tab_out_for_reading()
 End Sub
 
 ' Lookup rows read "tab|No.|title|Key 1|Key 2". The keys per tab: Publications
-' DOI and title; Presentations title; Media title and outlet; Talent
+' DOI and title; Presentations title and conference; Media title and outlet; Talent
 ' Development name and award; Education title and Year; Projects Grant Ref No
 ' and Project Name.
 Private Sub Export_writes_an_ID_lookup_with_each_rows_tab_No_title_and_match_keys()
@@ -446,7 +448,7 @@ Private Sub Export_writes_an_ID_lookup_with_each_rows_tab_No_title_and_match_key
     AssertEqual "Publications|1|Robotic gait training after stroke: a pilot study|10.1000/test.0001|Robotic gait training after stroke: a pilot study", _
         LookupRow(ws, "PUB-0001"), "PUB-0001"
     AssertEqual "Publications|3|Spasticity outcomes after botulinum toxin||Spasticity outcomes after botulinum toxin", LookupRow(ws, "PUB-0002"), "PUB-0002"
-    AssertEqual "Poster & Oral Presentation|4|Virtual reality balance training for older adults|Virtual reality balance training for older adults|", _
+    AssertEqual "Poster & Oral Presentation|4|Virtual reality balance training for older adults|Virtual reality balance training for older adults|Test Falls Forum", _
         LookupRow(ws, "PRES-0003"), "PRES-0003"
     AssertEqual "Media|2|New stroke rehab centre opens|New stroke rehab centre opens|The Test Times Print", LookupRow(ws, "MED-0002"), "MED-0002"
     AssertEqual "Talent Development||Test Fellowship Award|Tan Wei Ling|Test Fellowship Award", LookupRow(ws, "TD-0001"), "TD-0001"
@@ -632,6 +634,20 @@ Private Sub Check_matches_rows_by_Export_ID_whatever_order_the_sheet_is_in()
     AssertUnmarked wb.Worksheets("Media"), "MED-0002"
 End Sub
 
+' The same talk given at another conference is a new Presentation; typed again
+' for the same conference, it's already recorded.
+Private Sub Check_matches_a_Presentation_by_title_and_conference()
+    Dim wb As Object, ws As Object, r As Long
+    Set wb = OpenWorkbook(CheckFixture())
+    Set ws = wb.Worksheets("Poster & Oral Presentation")
+    r = RowOf(ws, "Name of Conference/ Symposium/ Seminar", "Test Neuro Rehab Summit")
+    AssertEqual GREEN, FillOf(ws, r, "Title of Presentation/Topic"), "new conference: green"
+    AssertEqual "New", NoteOf(ws, r), "new conference: note"
+    r = RowWithoutExportId(ws, "Name of Conference/ Symposium/ Seminar", "Test Rehab Congress 2025")
+    AssertEqual "Already recorded as No. 1, Early mobilisation in intensive care", NoteOf(ws, r), "same conference: note"
+    AssertTrue FillOf(ws, r, "Title of Presentation/Topic") <> GREEN, "same conference: not new"
+End Sub
+
 ' PRES-0003 was exported as "Virtual reality balance training"; IREx Admin has
 ' since renamed No. 4 in the Main Database.
 Private Sub Check_finds_a_record_by_No_after_its_title_was_changed_in_the_Main_Database()
@@ -717,7 +733,7 @@ Private Sub Check_summary_counts_each_kind_of_row_per_tab()
         Join(Array(ws.Range("A3").Value, ws.Range("B3").Value, ws.Range("C3").Value, ws.Range("D3").Value, _
         ws.Range("E3").Value, ws.Range("F3").Value, ws.Range("G3").Value), "|"), "headings"
     AssertEqual "2|1|1|1|1|1", SummaryRow(wb, "Publications"), "Publications"
-    AssertEqual "0|1|0|0|0|0", SummaryRow(wb, "Poster & Oral Presentation"), "Presentations"
+    AssertEqual "1|1|1|0|0|0", SummaryRow(wb, "Poster & Oral Presentation"), "Presentations"
     AssertEqual "1|1|2|0|1|0", SummaryRow(wb, "Media"), "Media"
     AssertEqual "0|1|0|0|0|0", SummaryRow(wb, "Talent Development"), "Talent Development"
     AssertEqual "1|0|0|0|2|0", SummaryRow(wb, "Education"), "Education"
